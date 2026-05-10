@@ -26,6 +26,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 # === 查找 FFmpeg 各个库 ===
 # 通过 pkg-config 找到 FFmpeg 的头⽂件和库⽂件位置
 # 这是最推荐的⽅式（前提是系统装了 -dev 包并且 .pc ⽂件存在）
+set(ENV{PKG_CONFIG_PATH} "/usr/local/ffmpeg-8.1.1/lib/pkgconfig")
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 libavformat
