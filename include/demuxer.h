@@ -23,10 +23,12 @@ class Demuxer {
             bit_rate       码率
             extradata      SPS/PPS 等额外信息*/
         AVRational video_time_base() const;//时间基查找
-        AVFormatContext* format_context() const {return fmt_ctx.get();};//
+        AVRational video_frame_rate() const;
+        //基于 container 和 codec 信息猜测帧率；第三个参数 frame 可以为 NULL；如果不知道帧率，会返回 0/1
+        AVFormatContext* format_context() const {return fmt_ctx_.get();};//
     private:
     int video_stream_idx_;
-    AVFormatContextPtr fmt_ctx;
+    AVFormatContextPtr fmt_ctx_;
 };
 
 }

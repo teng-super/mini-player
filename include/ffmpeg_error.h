@@ -15,8 +15,8 @@ namespace mp{
         return std::string(buf);
     }
     // 检查 FFmpeg 调⽤结果,出错时打印信息
-// ⽤法:CheckFFmpeg(avformat_open_input(...), "Failed to open input")
-// 返回值:成功为 true,失败为 false
+    // ⽤法:CheckFFmpeg(avformat_open_input(...), "Failed to open input")
+    // 返回值:成功为 true,失败为 false
     inline bool CheckFFmpeg(int ret, const std::string& context) {
         if (ret < 0) {
             std::cerr << "[FFmpeg error] " << context
@@ -26,5 +26,4 @@ namespace mp{
         }
         return true;
     }
-    
 }
