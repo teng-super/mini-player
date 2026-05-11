@@ -40,6 +40,12 @@ pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 # === 定义可执⾏⽂件 ===
 add_executable(mini-player
 src/main.cpp
+include/ffmpeg_error.h
+include/ffmpeg_raii.h
+include/demuxer.h
+include/demuxer.cpp
+include/video_decoder.h
+include/video_decoder.cpp
 )
 # === 头⽂件搜索路径 ===
 # include ⽬录是放⾃⼰写的头⽂件的地⽅
