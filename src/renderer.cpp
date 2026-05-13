@@ -5,8 +5,8 @@
 namespace mp{
     Renderer::~Renderer(){
         // 按顺序释放所有资源
+        if (texture_) SDL_DestroyTexture(texture_);      // 销毁纹理
         if (renderer_) SDL_DestroyRenderer(renderer_);  // 销毁渲染器
-        if(texture_) SDL_DestroyTexture(texture_);      // 销毁纹理
         if (window_) SDL_DestroyWindow(window_);        // 销毁窗口
         SDL_Quit();                                      // 退出SDL
     }
@@ -26,6 +26,7 @@ namespace mp{
             height,                           // 窗口高度
             SDL_WINDOW_SHOWN);                // 窗口显示方式（显示出来）
         if(!window_){
+            std::cerr << "SDL_CreateWindow: " << SDL_GetError() << std::endl;
             return false;
         }
 
@@ -33,7 +34,14 @@ namespace mp{
             window_,                          // 往哪个窗口上画
             -1,                               // 用哪个驱动（-1就是自动选）
             SDL_RENDERER_ACCELERATED);        // 用显卡加速渲染
-        if (!renderer_) return false;
+        if (!renderer_) {
+            std::cerr << "SDL_CreateRenderer accelerated: " << SDL_GetError() << std::endl;
+            renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_SOFTWARE);
+        }
+        if (!renderer_) {
+            std::cerr << "SDL_CreateRenderer software: " << SDL_GetError() << std::endl;
+            return false;
+        }
 
         texture_ = SDL_CreateTexture(
             renderer_,                        // 往哪个渲染器上画
@@ -41,14 +49,20 @@ namespace mp{
             SDL_TEXTUREACCESS_STREAMING,      // 允许边读边更新图片
             width,                            // 图片宽度
             height);                          // 图片高度
-        if (!texture_) return false;
+        if (!texture_) {
+            std::cerr << "SDL_CreateTexture: " << SDL_GetError() << std::endl;
+            return false;
+        }
 
         sws_ctx_.reset(sws_getContext(
             width, height, src_pix_fmt,      // 源图像：宽、高、格式（YUV等）
             width, height, AV_PIX_FMT_RGB24, // 目标图像：宽、高、格式（RGB）
             SWS_BILINEAR,                    // 缩放算法（双线性插值）
             nullptr, nullptr, nullptr));     // 颜色空间和参数（用默认值）
-        if(!sws_ctx_) return false;
+        if(!sws_ctx_) {
+            std::cerr << "sws_getContext failed" << std::endl;
+            return false;
+        }
 
         // 创建RGB帧用来存储转换后的数据
         rgb_frame_ = MakeFrame();              // 创建一个空的帧对象

@@ -27,7 +27,7 @@ class Demuxer {
         //基于 container 和 codec 信息猜测帧率；第三个参数 frame 可以为 NULL；如果不知道帧率，会返回 0/1
         AVFormatContext* format_context() const {return fmt_ctx_.get();};//
     private:
-    int video_stream_idx_;
+    int video_stream_idx_ = -1;
     AVFormatContextPtr fmt_ctx_;
 };
 

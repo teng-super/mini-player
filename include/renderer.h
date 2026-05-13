@@ -6,11 +6,11 @@ namespace mp{
     class Renderer{
         public:
             Renderer() = default;
-            ~Renderer() = default;
+            ~Renderer();
             Renderer(const Renderer&) = delete;
-            Renderer operator = (const Renderer&) = delete;
+            Renderer& operator=(const Renderer&) = delete;
             //初始化SDL，创建窗口和渲染器
-            bool Open(int width,int hight,AVPixelFormat src_pix_fmt);
+            bool Open(int width,int height,AVPixelFormat src_pix_fmt);
             //把frame（YUV）转换成成RGB格式渲染
             bool RenderFrame(AVFrame* frame);
             // 处理 SDL 事件,返回 false 表⽰⽤⼾要退出
