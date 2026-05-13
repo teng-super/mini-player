@@ -69,20 +69,27 @@ namespace mp{
         sws_scale(sws_ctx_.get(),
             frame->data, frame->linesize, 0, height_,  // 源数据、行大小、起始行、行数
             rgb_frame_->data, rgb_frame_->linesize);   // 目标数据、行大小
-        
         // 把RGB数据上传到纹理
         SDL_UpdateTexture(texture_, nullptr, rgb_frame_->data[0], rgb_frame_->linesize[0]);
-        
         // 清理上一帧（黑屏）
         SDL_RenderClear(renderer_);
-        
         // 把纹理复制到渲染器
         SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
-        
         // 显示到屏幕
         SDL_RenderPresent(renderer_);
-        
         return true;
     }
-    
+    bool Renderer::HandleEvents(){
+        SDL_Event event;//SDL特有的联合体,像一个嵌套的盒子
+        while(SDL_PollEvent(&event)){
+            if(event.type == SDL_QUIT) return false;
+            if(event.type == SDL_KEYDOWN){//此事件为键盘落下
+                if (event.key.keysym.sym == SDLK_q ||
+                    event.key.keysym.sym == SDLK_ESCAPE) {//按了q或者ESC
+                    return false;
+                }
+            } 
+        }//判断用户有没有想退出的想法，即在键盘上按q或者esc
+        return true;
+    }
 }
