@@ -1,3 +1,6 @@
+# 排除直接编译产物 (如编译器生成的无后缀文件)
+main
+*.out
 # 编译产物
 build/
 *.o
@@ -17,3 +20,5 @@ assets/*.mp4
 assets/*.mkv
 assets/*.flv
 !assets/sample.mp4
+# 排除 clangd 等本地工具缓存
+.cache/
