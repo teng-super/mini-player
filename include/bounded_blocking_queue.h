@@ -55,7 +55,7 @@ namespace mp{
 
             void Close(){
                 std::lock_guard<std::mutex> lk(mtx);
-                stop_.store(true);
+                stop_.store(true);//原子写入
                 // 必须 notify_all，因为可能有多个 Push 和多个 Pop 都在等
                 pro_cv.notify_all();
                 con_cv.notify_all();

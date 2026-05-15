@@ -11,8 +11,8 @@ namespace mp{
 class Demuxer {
     using PacketQueue = BoundedBlockingQueue<AVPacket*>;
     public:
-        Demuxer() = default;
-        ~Demuxer() = default;
+        Demuxer();
+        ~Demuxer();
         // 禁⽌拷⻉(资源类的标准做法)
         Demuxer(const Demuxer&) = delete;
         Demuxer& operator=(const Demuxer&) = delete;
