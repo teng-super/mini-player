@@ -1,10 +1,11 @@
 #pragma once
+#include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <mutex>
 #include <optional>//可能存在也可能不存在的值
 #include <queue>
-
+#include <utility>
 
 namespace mp{
     template<typename T>
@@ -13,24 +14,24 @@ namespace mp{
         std::condition_variable pro_cv;//生产者条件变量
         std::condition_variable con_cv;//消费者条件变量
         std::atomic<bool> stop_{false};//停止语义
-        std::mutex mtx;
+        mutable std::mutex mtx;
         size_t capacity_;
         std::queue<T> q;
         public:
             //构造函数指定容量上限
             explicit BoundedBlockingQueue(size_t capacity) : capacity_(capacity){};
 
-            BoundedBlockingQueue(const BoundBlockingQueue&) = delete;
-            BoundedBlockingQueue& opeartor = (const BoundedBlockingQueue&) =delete;
+            BoundedBlockingQueue(const BoundedBlockingQueue&) = delete;
+            BoundedBlockingQueue& operator=(const BoundedBlockingQueue&) = delete;
 
             bool push(T item){
                 std::unique_lock<std::mutex> lock(mtx);
                 pro_cv.wait(lock,[this](){//这里用this是因为需要捕获类里定义的queue
                     return q.size() < capacity_ ||
-                    stop_//关闭了
+                    stop_.load();//关闭了
                 });
-                if(stop_) return false;//如果关闭就退出
-                p.push(std::move(item));//注意移动传参
+                if(stop_.load()) return false;//如果关闭就退出
+                q.push(std::move(item));//注意移动传参
                 con_cv.notify_one();
                 return true;
             }
@@ -48,12 +49,13 @@ namespace mp{
                 所以返回 nullopt，通知消费者退出*/
                 T item = q.front();
                 q.pop();
+                pro_cv.notify_one();
                 return item;
             }
 
             void Close(){
                 std::lock_guard<std::mutex> lk(mtx);
-                closed_ = true;
+                stop_.store(true);
                 // 必须 notify_all，因为可能有多个 Push 和多个 Pop 都在等
                 pro_cv.notify_all();
                 con_cv.notify_all();
@@ -62,7 +64,7 @@ namespace mp{
             // 清空队列（用于 seek 时丢弃残留数据）
             template<typename Cleaner>
             //重点：cleaner是一个传入参数的lambda
-            void Cleaner(Cleaner cleaner){
+            void Clear(Cleaner cleaner){
                 std::lock_guard<std::mutex> lock(mtx);
                 while(!q.empty()){
                     cleaner(q.front());//之所以这样传是因为不仅要pop出去，还要对应
@@ -79,8 +81,7 @@ namespace mp{
                 return q.size();
             }
             bool Closed() const {
-                std::lock_guard<std::mutex> lock(mtx);
-                return closed_;
+                return stop_.load();
             } 
     };
 

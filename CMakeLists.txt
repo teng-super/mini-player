@@ -65,3 +65,16 @@ PkgConfig::SDL2
 message(STATUS "FFmpeg include dirs: ${FFMPEG_INCLUDE_DIRS}")
 message(STATUS "FFmpeg libraries: ${FFMPEG_LIBRARIES}")
 message(STATUS "SDL2 version: ${SDL2_VERSION}")
+
+# === 测试文件添加 ===
+option(BUILD_TESTS "Build test programs" OFF)##添加BUILD_TESTS类型默认值为OFF，中间是注释
+if(BUILD_TESTS)
+    add_executable(test_bounded_blocking_queue
+        tests/test_bounded_blocking_queue.cpp
+    )
+    target_include_directories(test_bounded_blocking_queue PRIVATE
+        ${CMAKE_SOURCE_DIR}/include##SOURCE_DIR表示
+    )
+    find_package(Threads REQUIRED)
+    target_link_libraries(test_bounded_blocking_queue PRIVATE Threads::Threads)
+endif()
