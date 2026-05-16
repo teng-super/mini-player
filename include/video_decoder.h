@@ -9,8 +9,8 @@ namespace mp{
     using FrameQueue = BoundedBlockingQueue<AVFrame*>;//接入frame数据的队列
     class VideoDecoder{
         public:
-            VideoDecoder() = default;
-            ~VideoDecoder() = default;
+            VideoDecoder();
+            ~VideoDecoder();
 
             VideoDecoder(const VideoDecoder& other) = delete;
             VideoDecoder& operator = (const VideoDecoder& other) = delete;

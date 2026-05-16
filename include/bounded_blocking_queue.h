@@ -57,6 +57,7 @@ namespace mp{
                 std::lock_guard<std::mutex> lk(mtx);
                 stop_.store(true);//原子写入
                 // 必须 notify_all，因为可能有多个 Push 和多个 Pop 都在等
+                //我再说两句，这里如果不唤醒，待会join的时候这堆线程还睡着了，直接死锁
                 pro_cv.notify_all();
                 con_cv.notify_all();
             }

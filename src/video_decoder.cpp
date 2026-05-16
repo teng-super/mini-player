@@ -5,6 +5,11 @@ extern "C"{
     #include<libavcodec/avcodec.h>
 }
 namespace mp{
+    VideoDecoder::VideoDecoder() = default;
+    VideoDecoder::~VideoDecoder(){
+        Stop();//停止
+        frame_queue_.Clear([](AVFrame* frame){av_frame_free(&frame);});
+    };
     bool VideoDecoder::open(AVCodecParameters* codecpar){
         if(!codecpar) return false;
         const AVCodec* codec=avcodec_find_decoder(codecpar->codec_id);
@@ -30,7 +35,84 @@ namespace mp{
         }
         return true;
     }
-    bool VideoDecoder::SendPacket(AVPacket* pkt){
+
+    void VideoDecoder::Start(PacketQueue* packet_queue){
+        if(thread_.joinable()) return;
+        packet_queue_ = packet_queue;
+        stop_requested_ = false;//while
+        thread_ = std::thread(&VideoDecoder::Run,this);
+    }
+    void VideoDecoder::Stop(){
+        stop_requested_ = true;
+        frame_queue_.Close();
+        if (thread_.joinable()) {
+            thread_.join();
+        }
+    }
+
+    void VideoDecoder::Run(){
+        while(!stop_requested_){
+            auto opt_pkt = packet_queue_->pop();//从上游取出一个packet
+
+            if (!opt_pkt) {
+            // 上游 close 了开始送 NULL 进解码器进入 flush 模式
+                avcodec_send_packet(ctx_.get(), nullptr);
+                DrainFrames();//把剩余帧全部取出 
+                break;
+            }
+            AVPacket* pkt = *opt_pkt;//这里用*是为了获得真正的AVPacket指针，而不是optional这个奇特类型
+            int ret = avcodec_send_packet(ctx_.get(),pkt);
+            av_packet_free(&pkt);//输送给解码器了，可以释放了
+            //严格来讲，这里涉及到引用计数和关于packet底层原理相关的东西
+            //这里send时，引用计数会加一，在释放这个pkt壳子的同时减一，对象并不会被销毁
+            if (ret < 0 && ret != AVERROR(EAGAIN)) {
+                CheckFFmpeg(ret, "avcodec_send_packet");
+                continue;
+            }
+
+            if (!DrainFrames()) break;
+        }
+        frame_queue_.Close();//
+        std::cout << "[VideoDecoder] thread exiting" << std::endl;
+    }
+
+    bool VideoDecoder::DrainFrames(){
+        while(true){
+            if(stop_requested_) break;
+            AVFrame* frame = av_frame_alloc();
+            int ret = avcodec_receive_frame(ctx_.get(),frame);
+
+            if(!frame) return false;
+            if(ret == AVERROR(EAGAIN)){
+                av_frame_free(&frame);
+                return true;
+            }
+            if(ret == AVERROR_EOF){
+                av_frame_free(&frame);
+                return false;
+            }
+            if(ret < 0){
+                av_frame_free(&frame);
+                return false;
+            }
+
+            if(!frame_queue_.push(frame)){
+                av_frame_free(&frame); 
+                return false;
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+    /*bool VideoDecoder::SendPacket(AVPacket* pkt){
         int ret = avcodec_send_packet(ctx_.get(),pkt);
         if(ret<0 && ret!=AVERROR(EAGAIN) && ret!=AVERROR_EOF){
             CheckFFmpeg(ret,"avcodec_send_packet");
@@ -38,13 +120,15 @@ namespace mp{
             }
             return true;
         }
+            
     int VideoDecoder::ReceiveFrame(AVFrame* frame){
         int ret = avcodec_receive_frame(ctx_.get(),frame);
         if(ret == 0) return 1;//取出一帧
         if(ret == AVERROR(EAGAIN)) return 0;
         if(ret == AVERROR_EOF) return -1;
-
         CheckFFmpeg(ret,"avcodec_receive_frame");
-        return -1;
-    }
+        return -1;}
+    *///时代的眼泪
+
+        
 }
