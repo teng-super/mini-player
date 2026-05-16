@@ -7,9 +7,8 @@
 #include "ffmpeg_raii.h"
 #include "bounded_blocking_queue.h"
 namespace mp{
-    
+     using PacketQueue = BoundedBlockingQueue<AVPacket*>;//packet队列
 class Demuxer {
-    using PacketQueue = BoundedBlockingQueue<AVPacket*>;
     public:
         Demuxer();
         ~Demuxer();
