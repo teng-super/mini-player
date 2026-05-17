@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
-#include<iostream>
+#include <iostream>
+#include <chrono>
 #include "demuxer.h"
 #include "renderer.h"
 #include "video_decoder.h"
@@ -14,24 +15,52 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     if (!demuxer.Open(argv[1])) return 1;//【0】是miniplayer，【1】是assert里面那个MP4的路径
     VideoDecoder decoder;
     if (!decoder.open(demuxer.video_cpar())) return 1;
+    Renderer renderer;
+    if(!renderer.Open(decoder.width(),decoder.height(),decoder.pixelformat())) return 1;\
 
+    //2. 计算粗糙的帧间隔（暂时不做精确同步）
+    AVRational rf = demuxer.video_frame_rate();//视频帧率
+    double fps = (rf.num && rf.den) ? av_q2d(rf) : 30.0 ;
+    auto frame_delay = std::chrono::microseconds(static_cast<long>(1000000.0/fps));
+    //这里不用SDL_Delay了，因为那个只支持毫秒级别，会带来误差
+    std::cout << "FPS: " << fps << std::endl;
+    //启动两个后台线程
     demuxer.Start();//start->run读取packet包并放入packet队列
     decoder.Start(&demuxer.packet_queue());//demuxer类里的接口，提供packet队列
+    //steady_clock 的定义是：now() 返回值单调非递减，不受系统时间调整影响。
+    auto next_present = std::chrono::steady_clock::now();//第一帧应该呈现的时间点
+    bool running = true;//控制住循环是否关闭
+    int rendered = 0;//统计已经渲染到屏幕上的帧
 
-    int frame_count = 0;
-    while(auto opt_frame = decoder.frame_queue().pop()){
+    while(running){
+        if (!renderer.HandleEvents()) {//按下q或者esc的时候会返回false
+            running = false;
+            break;
+        }
+
+        auto opt_frame = decoder.frame_queue().pop();
+        if(!opt_frame){
+            std::cout << "End of stream" << std::endl;
+            break;
+        }
         AVFrame* frame = *opt_frame;
-        frame_count++;
-        if(frame_count%30 == 0){
-            std::cout<<"Get"<<frame_count<<"frames,"
-            <<"size="<<frame->width<<"*"<<frame->height
-            <<",PTS="<<frame->pts<<std::endl;
-        } 
+        renderer.RenderFrame(frame);
         av_frame_free(&frame);
-        std::cout << "Total frames: " << frame_count << std::endl;
+        rendered++;
+        next_present += frame_delay;//关键！自适应更新时钟周期
+        /*next_present 是一个绝对时间点序列，比如 [T₀, T₀+33ms, T₀+66ms, T₀+99ms, ...]。
+        每帧渲染完后，目标时间往前推 33ms，不管这一帧实际花了多久。
+        渲染如果只花 5ms：sleep 28ms，总耗时 33ms ✓
+        渲染如果花了 20ms：sleep 13ms，总耗时 33ms ✓
+        渲染如果花了 40ms（超时）：不 sleep，直接进下一帧，目标时间已经跟不上但下一帧会试图追
+        这就叫自补偿调度。你的渲染快慢的抖动会被自动吸收，长期平均严格 30fps。
+        讲义原话："这种'基于绝对目标时间的等待'是音视频时序的基础模式。
+        "——这是 ffplay、mpv、ijkplayer 共有的设计模式。
+        ffplay 源码会看到 video_refresh 函数里有几乎完全一样的结构。*/
     }
-        decoder.Stop();
-        demuxer.Stop();
+    std::cout << "Rendered " << rendered << " frames" << std::endl;
+    decoder.Stop();
+    demuxer.Stop();
 
     /*旧版本：
     Renderer renderer;
