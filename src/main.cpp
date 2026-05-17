@@ -14,6 +14,26 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     if (!demuxer.Open(argv[1])) return 1;//【0】是miniplayer，【1】是assert里面那个MP4的路径
     VideoDecoder decoder;
     if (!decoder.open(demuxer.video_cpar())) return 1;
+
+    demuxer.Start();//start->run读取packet包并放入packet队列
+    decoder.Start(&demuxer.packet_queue());//demuxer类里的接口，提供packet队列
+
+    int frame_count = 0;
+    while(auto opt_frame = decoder.frame_queue().pop()){
+        AVFrame* frame = *opt_frame;
+        frame_count++;
+        if(frame_count%30 == 0){
+            std::cout<<"Get"<<frame_count<<"frames,"
+            <<"size="<<frame->width<<"*"<<frame->height
+            <<",PTS="<<frame->pts<<std::endl;
+        } 
+        av_frame_free(&frame);
+        std::cout << "Total frames: " << frame_count << std::endl;
+    }
+        decoder.Stop();
+        demuxer.Stop();
+
+    /*旧版本：
     Renderer renderer;
     if (!renderer.Open(decoder.width(), decoder.height(), decoder.pixelformat())) return 1;
 
@@ -46,6 +66,6 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
             running = false;//AVERROR_EOF
         }
         //为0时说明返回的是EAGAIN，继续循环
-    }
+    }*///旧版流程
     return 0;
 }

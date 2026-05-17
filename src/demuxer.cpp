@@ -45,7 +45,7 @@ namespace mp{
            std::cerr << "Demuxer already started" << std::endl;
             return; 
         }
-        stop_requested_=true;
+        stop_requested_=false;//bug1:这里写的true，导致run不起来
         thread_ = std::thread(&Demuxer::Run, this);
         //创建一个线程让他去执行Run
     }

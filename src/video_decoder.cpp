@@ -85,7 +85,7 @@ namespace mp{
             if(!frame) return false;
             if(ret == AVERROR(EAGAIN)){
                 av_frame_free(&frame);
-                return true;
+                return true;//返回true再来一轮
             }
             if(ret == AVERROR_EOF){
                 av_frame_free(&frame);
@@ -97,10 +97,11 @@ namespace mp{
             }
 
             if(!frame_queue_.push(frame)){
-                av_frame_free(&frame); 
+                av_frame_free(&frame);
                 return false;
             }
         }
+        return false;
     }
 
 
