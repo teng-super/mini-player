@@ -45,21 +45,21 @@ namespace mp{
            std::cerr << "Demuxer already started" << std::endl;
             return; 
         }
-        stop_requested_=false;//bug1:这里写的true，导致run不起来
-        thread_ = std::thread(&Demuxer::Run, this);
-        //创建一个线程让他去执行Run
+        //stop_requested_=false;bug1:这里写的true，导致run不起来
+        thread_ = std::jthread([this](std::stop_token st){Run(st);});//jthread创建时会把stop_token作为第一个参数传入jthread
+        //创建一个线程让他去执行Run,用了lambda捕获this，因为这里第一个参数要传stop_token但是又要传this
+        //正常写法GCC13其实可以但是不严谨：jthread(&Demuxer::Run,this)
     }
 
     void Demuxer::Stop(){
-        stop_requested_ = true;
-        packet_queue_.Close();
-        if (thread_.joinable()) {
-            thread_.join();//还能停的话就停了吧
-        }
+        thread_.request_stop();//终止线程
+        packet_queue_.Close();//这里加这个是为了防止睡着的push线程导致无法join（哪怕是jthread也不行）导致的死锁
+        if(thread_.joinable()) thread_.join();//其实没有必要，因为队列已经设计的很严谨了
+        //不会有主线程一边释放这个线程还一直往里面push的情况
     }
 
-    void Demuxer::Run(){
-        while(!stop_requested_){
+    void Demuxer::Run(std::stop_token stoken){
+        while(!stoken.stop_requested()){
             AVPacket* pkt = av_packet_alloc();
             if (!pkt) {
                 std::cerr << "av_packet_alloc failed" << std::endl;
@@ -74,7 +74,7 @@ namespace mp{
                     CheckFFmpeg(ret, "av_read_frame");
                     }
                     // 通知下游：没有更多 packet 了
-                    packet_queue_.Close();
+                    packet_queue_.Close();//必须要关闭！只有在队列Close的情况下才会返回nullopt
                     break;
                 }
                 if (pkt->stream_index != video_stream_idx_) {
@@ -83,7 +83,8 @@ namespace mp{
                     continue;
                 }
                 if (!packet_queue_.push(pkt)) {
-                    av_packet_unref(pkt);
+                    //av_packet_unref(pkt);一个bug
+                    av_packet_free(&pkt);//这个才对
                     break;
                 }
             }

@@ -1,6 +1,7 @@
 #pragma once
 #include <atomic>
 #include <thread>
+#include <stop_token>
 #include "bounded_blocking_queue.h"
 #include "demuxer.h"
 #include "ffmpeg_raii.h"
@@ -41,14 +42,14 @@ namespace mp{
             }
             //求分辨率
         private:
-            void Run();
-            bool DrainFrames();
+            void Run(std::stop_token stoken);
+            bool DrainFrames(std::stop_token stoken);
 
             AVCodecContextPtr ctx_;
             FrameQueue frame_queue_{4};
             PacketQueue* packet_queue_ = nullptr; //不拥有上游队列，纯靠外部传入
 
-            std::thread thread_;
-            std::atomic<bool> stop_requested_{false};
+            std::jthread thread_;
+            //std::atomic<bool> stop_requested_{false};
     };
 }

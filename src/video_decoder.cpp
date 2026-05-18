@@ -39,25 +39,29 @@ namespace mp{
     void VideoDecoder::Start(PacketQueue* packet_queue){
         if(thread_.joinable()) return;
         packet_queue_ = packet_queue;
-        stop_requested_ = false;//while
-        thread_ = std::thread(&VideoDecoder::Run,this);
+        //stop_requested_ = false;//jthread不需要这个
+        thread_ = std::jthread([this](std::stop_token st){Run(st);});
     }
     void VideoDecoder::Stop(){
-        stop_requested_ = true;
+        // 调用方必须保证在此之前已调用 demuxer.Stop()，
+        // 以确保 packet_queue 已 close，否则 join 可能死锁
+        thread_.request_stop();
+        //stop_requested_ = true;
         frame_queue_.Close();
         if (thread_.joinable()) {
             thread_.join();
         }
     }
 
-    void VideoDecoder::Run(){
-        while(!stop_requested_){
+    void VideoDecoder::Run(std::stop_token stoken){
+        while(!stoken.stop_requested()){
+            //注意！stoken用的判断是stop_requested，而thread用的是request_stop，两个是反着的！！！
             auto opt_pkt = packet_queue_->pop();//从上游取出一个packet
 
             if (!opt_pkt) {
             // 上游 close 了开始送 NULL 进解码器进入 flush 模式
                 avcodec_send_packet(ctx_.get(), nullptr);
-                DrainFrames();//把剩余帧全部取出 
+                DrainFrames(stoken);//把剩余帧全部取出 
                 break;
             }
             AVPacket* pkt = *opt_pkt;//这里用*是为了获得真正的AVPacket指针，而不是optional这个奇特类型
@@ -70,19 +74,23 @@ namespace mp{
                 continue;
             }
 
-            if (!DrainFrames()) break;
+            if (!DrainFrames(stoken)) break;
         }
         frame_queue_.Close();//
         std::cout << "[VideoDecoder] thread exiting" << std::endl;
     }
 
-    bool VideoDecoder::DrainFrames(){
+    bool VideoDecoder::DrainFrames(std::stop_token stoken){
         while(true){
-            if(stop_requested_) break;
+            if(stoken.stop_requested()) break;
             AVFrame* frame = av_frame_alloc();
+            if (!frame) {                          // ← 加这个检查
+            std::cerr << "[VideoDecoder] av_frame_alloc failed" << std::endl;
+            return false;
+        }
             int ret = avcodec_receive_frame(ctx_.get(),frame);
 
-            if(!frame) return false;
+            //if(!frame) return false;这里错了，应该先检查frame申请成功没有再传入receiveframe
             if(ret == AVERROR(EAGAIN)){
                 av_frame_free(&frame);
                 return true;//返回true再来一轮

@@ -1,6 +1,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <chrono>
+#include <thread>
+#include <algorithm>
 #include "demuxer.h"
 #include "renderer.h"
 #include "video_decoder.h"
@@ -16,7 +18,7 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     VideoDecoder decoder;
     if (!decoder.open(demuxer.video_cpar())) return 1;
     Renderer renderer;
-    if(!renderer.Open(decoder.width(),decoder.height(),decoder.pixelformat())) return 1;\
+    if(!renderer.Open(decoder.width(),decoder.height(),decoder.pixelformat())) return 1;
 
     //2. 计算粗糙的帧间隔（暂时不做精确同步）
     AVRational rf = demuxer.video_frame_rate();//视频帧率
@@ -36,6 +38,16 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
         if (!renderer.HandleEvents()) {//按下q或者esc的时候会返回false
             running = false;
             break;
+        }
+        //判断下一帧出现时间
+        auto now = std::chrono::steady_clock::now();
+        if(now < next_present) {
+            auto sleep_time = next_present - now;
+            auto max_sleep = std::chrono::milliseconds(10);
+            if (sleep_time > max_sleep) {
+                sleep_time = max_sleep;
+            }
+            std::this_thread::sleep_for(sleep_time);
         }
 
         auto opt_frame = decoder.frame_queue().pop();
@@ -59,8 +71,9 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
         ffplay 源码会看到 video_refresh 函数里有几乎完全一样的结构。*/
     }
     std::cout << "Rendered " << rendered << " frames" << std::endl;
-    decoder.Stop();
-    demuxer.Stop();
+    demuxer.Stop();  // 1. 先停上游，它会 Close packet_queue
+    decoder.Stop();  // 2. 再停下游，此时 Pop 会返回 nullopt，线程自然退出
+    // 之后 demuxer 和 decoder 离开作用域时，析构里的 Stop() 又调一遍，无害
 
     /*旧版本：
     Renderer renderer;

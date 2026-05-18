@@ -40,7 +40,7 @@ namespace mp{
                 std::unique_lock<std::mutex> lock(mtx);
                 con_cv.wait(lock,[this](){
                     return !q.empty() ||
-                    stop_;
+                    stop_;//必须过了这一关才能进入empty
                 });
                 if(q.empty()) return std::nullopt;
                 /*消费者被唤醒后发现队列仍然是空的，

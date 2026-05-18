@@ -54,7 +54,7 @@ namespace mp{
             return false;
         }
 
-        sws_ctx_.reset(sws_getContext(
+        sws_ctx_.reset(sws_getContext(//配置并初始化转换器，把原图换成目标格式
             width, height, src_pix_fmt,      // 源图像：宽、高、格式（YUV等）
             width, height, AV_PIX_FMT_RGB24, // 目标图像：宽、高、格式（RGB）
             SWS_BILINEAR,                    // 缩放算法（双线性插值）

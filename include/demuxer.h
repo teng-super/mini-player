@@ -4,6 +4,7 @@
 #include <optional>
 #include <thread>
 #include <memory>
+#include <stop_token>
 #include "ffmpeg_raii.h"
 #include "bounded_blocking_queue.h"
 namespace mp{
@@ -19,7 +20,7 @@ class Demuxer {
         bool Open(const std::string& path);//自定义函数，打开对应文件,成功返回true
         void Start();//启动一个读包线程
 
-        void Stop();//停止此线程
+        void Stop();//停止此线程，引入jthread自动析构
         //将原先的一次一次调用换成start,stop这样Run() + packet_queue()给代替
 
         PacketQueue& packet_queue(){return packet_queue_;};
@@ -36,13 +37,13 @@ class Demuxer {
         //基于 container 和 codec 信息猜测帧率；第三个参数 frame 可以为 NULL；如果不知道帧率，会返回 0/1
         AVFormatContext* format_context() const {return fmt_ctx_.get();};//
     private:
-    void Run();//后台的跑函数
+    void Run(std::stop_token stoken);//后台的跑函数
     int video_stream_idx_ = -1;
     AVFormatContextPtr fmt_ctx_;
 
     PacketQueue packet_queue_{60}; // capacity 60的读packet队列
-    std::thread thread_;//读线程
-    std::atomic<bool> stop_requested_{false};//让线程开始和停止
+    std::jthread thread_;//读线程
+    //不需要了std::atomic<bool> stop_requested_{false};//让线程开始和停止
 };
 
 }

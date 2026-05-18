@@ -78,3 +78,27 @@ if(BUILD_TESTS)
     find_package(Threads REQUIRED)
     target_link_libraries(test_bounded_blocking_queue PRIVATE Threads::Threads)
 endif()
+
+# === Sanitizers 动态检查工具 (建议在 Debug 时开启) ===
+# 开启方法: cmake -B build -DSANITIZE_THREAD=ON 
+# (注意：ThreadSanitizer 和 AddressSanitizer 通常不能同时开启)
+
+# 1. 开启 ThreadSanitizer: 用于检查多线程的数据竞争(Data Race)和死锁
+option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
+
+# 2. 开启 AddressSanitizer: 用于检查内存泄漏、越界访问、使用已释放内存等问题
+option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
+
+if(SANITIZE_THREAD)
+    message(STATUS "ThreadSanitizer enabled")
+    # 注入线程检查代码，-g保留行号，-O1基础优化防止太卡
+    add_compile_options(-fsanitize=thread -g -O1)
+    add_link_options(-fsanitize=thread)
+endif()
+
+if(SANITIZE_ADDRESS)
+    message(STATUS "AddressSanitizer enabled")
+    # 注入内存检查代码，-fno-omit-frame-pointer让报错时的调用栈更清晰
+    add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g -O1)
+    add_link_options(-fsanitize=address)
+endif()
