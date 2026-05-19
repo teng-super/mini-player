@@ -17,18 +17,18 @@ namespace mp{
             std::cerr << "未找到解码器, codec_id=" << codecpar->codec_id << std::endl;
             return false;
         }
-        ctx_.reset(avcodec_alloc_context3(codec));
-        if(!ctx_) return false;
+        video_ctx_.reset(avcodec_alloc_context3(codec));
+        if(!video_ctx_) return false;
         //检查，凡是这种返回一个数字（0，1，-1的都可以用checkffmpeg函数检查）
         if (!CheckFFmpeg(
-            avcodec_parameters_to_context(ctx_.get(), codecpar),
+            avcodec_parameters_to_context(video_ctx_.get(), codecpar),
             "avcodec_parameters_to_context"
         )) {
         return false;
         }
 
         if(!CheckFFmpeg(
-            avcodec_open2(ctx_.get(),codec,nullptr),
+            avcodec_open2(video_ctx_.get(),codec,nullptr),
             "avcodec_open2"
         )){
             return false;
@@ -60,12 +60,12 @@ namespace mp{
 
             if (!opt_pkt) {
             // 上游 close 了开始送 NULL 进解码器进入 flush 模式
-                avcodec_send_packet(ctx_.get(), nullptr);
+                avcodec_send_packet(video_ctx_.get(), nullptr);
                 DrainFrames(stoken);//把剩余帧全部取出 
                 break;
             }
             AVPacket* pkt = *opt_pkt;//这里用*是为了获得真正的AVPacket指针，而不是optional这个奇特类型
-            int ret = avcodec_send_packet(ctx_.get(),pkt);
+            int ret = avcodec_send_packet(video_ctx_.get(),pkt);
             av_packet_free(&pkt);//输送给解码器了，可以释放了
             //严格来讲，这里涉及到引用计数和关于packet底层原理相关的东西
             //这里send时，引用计数会加一，在释放这个pkt壳子的同时减一，对象并不会被销毁
@@ -88,7 +88,7 @@ namespace mp{
             std::cerr << "[VideoDecoder] av_frame_alloc failed" << std::endl;
             return false;
         }
-            int ret = avcodec_receive_frame(ctx_.get(),frame);
+            int ret = avcodec_receive_frame(video_ctx_.get(),frame);
 
             //if(!frame) return false;这里错了，应该先检查frame申请成功没有再传入receiveframe
             if(ret == AVERROR(EAGAIN)){

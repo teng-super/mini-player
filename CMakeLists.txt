@@ -42,11 +42,13 @@ add_executable(mini-player
 src/main.cpp
 src/demuxer.cpp
 src/video_decoder.cpp
+src/audio_decoder.cpp
 src/renderer.cpp
 include/ffmpeg_error.h
 include/ffmpeg_raii.h
 include/demuxer.h
 include/video_decoder.h
+include/audio_decoder.h
 include/renderer.h
 )
 # === 头⽂件搜索路径 ===

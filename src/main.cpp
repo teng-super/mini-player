@@ -75,6 +75,7 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     demuxer.Stop();  // 1. 先停上游，它会 Close packet_queue
     decoder.Stop();  // 2. 再停下游，此时 Pop 会返回 nullopt，线程自然退出
     // 之后 demuxer 和 decoder 离开作用域时，析构里的 Stop() 又调一遍，无害
+    //如果顺序反了，就没法往下走了，packetqueue里的进程永远无法被唤醒
 
     /*旧版本：
     Renderer renderer;
