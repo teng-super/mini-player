@@ -27,7 +27,7 @@ class Demuxer {
         bool has_video() const {return video_stream_idx_ >= 0;};
         PacketQueue& video_packet_queue(){return video_packet_queue_;};
         int video_stream_index() const {return video_stream_idx_;} ;//返回对应流的下标
-        AVCodecParameters* video_cpar() const;
+        AVCodecParameters* video_codecpar() const;
         /*  codec_id       编码格式，比如 H.264 / H.265 / VP9
             width          视频宽度
             height         视频高度
@@ -55,8 +55,8 @@ class Demuxer {
     AVFormatContextPtr fmt_ctx_;
 
 
+    PacketQueue video_packet_queue_{60};  // capacity 60 的视频读 packet 队列
     PacketQueue audio_packet_queue_{100}; // 音频 packet 数量比视频多,容量大一些
-    PacketQueue video_packet_queue_{60}; // capacity 60的读packet队列
     std::jthread thread_;//读线程
     //不需要了std::atomic<bool> stop_requested_{false};//让线程开始和停止
 };

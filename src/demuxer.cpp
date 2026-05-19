@@ -38,11 +38,12 @@ namespace mp{
             std::cerr << "No video or audio stream in " << path << std::endl;
             return false;
         }
-            std::cout << "[Demuxer] video stream: " << video_stream_idx_
-            << ", audio stream: " << audio_stream_idx_ << std::endl;
-            return true;
-        }      
-        
+        std::cout << "[Demuxer] video stream: " << video_stream_idx_
+                  << ", audio stream: " << audio_stream_idx_ << std::endl;
+        return true;
+    }
+
+
     //之前这里有个单线程用的readpacket一一读包函数，放到run里面了
     void Demuxer::Start(){
         if(thread_.joinable()){//这个函数表示是否需要被join或者detach，需要的话返回true
@@ -97,7 +98,7 @@ namespace mp{
         std::cout << "[Demuxer] thread exiting" << std::endl;
     }
 
-    AVCodecParameters* Demuxer::video_cpar() const {
+    AVCodecParameters* Demuxer::video_codecpar() const {
         if(!fmt_ctx_ || video_stream_idx_ < 0) return nullptr;
         return fmt_ctx_->streams[video_stream_idx_]->codecpar;
     }
@@ -123,7 +124,7 @@ namespace mp{
         if (audio_stream_idx_ < 0) return AVRational{0, 1};
         return fmt_ctx_->streams[audio_stream_idx_]->time_base;
     }
-    double Demuxer::total_duration_seconds() const {//这个是媒体的总播放时长,把微妙转换成秒
+    double Demuxer::total_duration_seconds() const {//这个是媒体的总播放时长,把微秒转换成秒
         if(!fmt_ctx_) return 0.0;
         if(fmt_ctx_->duration == AV_NOPTS_VALUE) return 0.0;
         //直播流和裸文件流没有pts

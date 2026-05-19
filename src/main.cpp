@@ -16,7 +16,7 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     Demuxer demuxer;
     if (!demuxer.Open(argv[1])) return 1;//【0】是miniplayer，【1】是assert里面那个MP4的路径
     VideoDecoder decoder;
-    if (!decoder.open(demuxer.video_cpar())) return 1;
+    if (!decoder.Open(demuxer.video_codecpar())) return 1;
     Renderer renderer;
     if(!renderer.Open(decoder.width(),decoder.height(),decoder.pixelformat())) return 1;
 
