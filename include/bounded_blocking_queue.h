@@ -15,6 +15,7 @@ namespace mp{
         std::condition_variable con_cv;//消费者条件变量
         std::atomic<bool> stop_{false};//停止语义
         mutable std::mutex mtx;
+        //lock_guard 构造时会调用 mtx.lock()，而 lock() 是 mutex 的非 const 操作。所以这里要加mutable
         size_t capacity_;
         std::queue<T> q;
         public:

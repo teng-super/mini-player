@@ -22,13 +22,13 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
 
     //2. 计算粗糙的帧间隔（暂时不做精确同步）
     AVRational rf = demuxer.video_frame_rate();//视频帧率
-    double fps = (rf.num && rf.den) ? av_q2d(rf) : 30.0 ;
+    double fps = (rf.num>0 && rf.den>0) ? av_q2d(rf) : 30.0 ;//必须是大于0，虽然不太可能但是理论上如果分子是个负数那这里还是能过，非负为正
     auto frame_delay = std::chrono::microseconds(static_cast<long>(1000000.0/fps));
     //这里不用SDL_Delay了，因为那个只支持毫秒级别，会带来误差
     std::cout << "FPS: " << fps << std::endl;
     //启动两个后台线程
     demuxer.Start();//start->run读取packet包并放入packet队列
-    decoder.Start(&demuxer.packet_queue());//demuxer类里的接口，提供packet队列
+    decoder.Start(&demuxer.video_packet_queue());//demuxer类里的接口，提供packet队列
     //steady_clock 的定义是：now() 返回值单调非递减，不受系统时间调整影响。
     auto next_present = std::chrono::steady_clock::now();//第一帧应该呈现的时间点
     bool running = true;//控制住循环是否关闭
@@ -45,7 +45,8 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
             auto sleep_time = next_present - now;
             auto max_sleep = std::chrono::milliseconds(10);
             if (sleep_time > max_sleep) {
-                sleep_time = max_sleep;
+                std::this_thread::sleep_for(max_sleep);
+                continue; // 必须 continue 重新检测时间并处理窗口事件！否则会提前渲染
             }
             std::this_thread::sleep_for(sleep_time);
         }

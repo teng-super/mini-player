@@ -23,7 +23,9 @@ class Demuxer {
         void Stop();//停止此线程，引入jthread自动析构
         //将原先的一次一次调用换成start,stop这样Run() + packet_queue()给代替
 
-        PacketQueue& packet_queue(){return packet_queue_;};
+        //================视频类==================
+        bool has_video() const {return video_stream_idx_ >= 0;};
+        PacketQueue& video_packet_queue(){return video_packet_queue_;};
         int video_stream_index() const {return video_stream_idx_;} ;//返回对应流的下标
         AVCodecParameters* video_cpar() const;
         /*  codec_id       编码格式，比如 H.264 / H.265 / VP9
@@ -34,14 +36,27 @@ class Demuxer {
             extradata      SPS/PPS 等额外信息*/
         AVRational video_time_base() const;//时间基查找
         AVRational video_frame_rate() const;
+
+        //================音频类====================
+        bool has_audio() const {return audio_stream_idx_ >= 0;};
+        PacketQueue& audio_packet_queue(){return audio_packet_queue_;};
+        int audio_stream_index() const {return audio_stream_idx_;};
+        AVCodecParameters* audio_codecpar() const;
+        AVRational audio_time_base() const;
+        double total_duration_seconds() const;
+
+
         //基于 container 和 codec 信息猜测帧率；第三个参数 frame 可以为 NULL；如果不知道帧率，会返回 0/1
         AVFormatContext* format_context() const {return fmt_ctx_.get();};//
     private:
     void Run(std::stop_token stoken);//后台的跑函数
     int video_stream_idx_ = -1;
+    int audio_stream_idx_ = -1;
     AVFormatContextPtr fmt_ctx_;
 
-    PacketQueue packet_queue_{60}; // capacity 60的读packet队列
+
+    PacketQueue audio_packet_queue_{100}; // 音频 packet 数量比视频多,容量大一些
+    PacketQueue video_packet_queue_{60}; // capacity 60的读packet队列
     std::jthread thread_;//读线程
     //不需要了std::atomic<bool> stop_requested_{false};//让线程开始和停止
 };

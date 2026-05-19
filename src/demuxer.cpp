@@ -5,8 +5,9 @@
 namespace mp{
     Demuxer::Demuxer() = default;
     Demuxer::~Demuxer() {//析构函数不能写等于
-        Stop();
-        packet_queue_.Clear([](AVPacket*pkt){av_packet_free(&pkt);});
+        Stop();//严格按照先后顺序析构，每一个阻塞在退出时都必须有可以唤醒他的能力
+        video_packet_queue_.Clear([](AVPacket*pkt){av_packet_free(&pkt);});
+        audio_packet_queue_.Clear([](AVPacket*pkt){av_packet_free(&pkt);});
     }
     bool Demuxer::Open(const std::string& path){
         AVFormatContext* raw = nullptr;
@@ -28,16 +29,20 @@ namespace mp{
         for(unsigned i=0;i<fmt_ctx_->nb_streams;i++){
             if(fmt_ctx_->streams[i]->codecpar->codec_type==AVMEDIA_TYPE_VIDEO){
                 video_stream_idx_ = i;
-                break;
+            }
+            if(fmt_ctx_->streams[i]->codecpar->codec_type==AVMEDIA_TYPE_AUDIO){
+                audio_stream_idx_ = i;
             }
         }
-        if (video_stream_idx_ < 0) {
-            std::cerr << "No video stream in " << path << std::endl;
+        if (video_stream_idx_ < 0 && audio_stream_idx_ < 0) {
+            std::cerr << "No video or audio stream in " << path << std::endl;
             return false;
-        }            
-        return true;
-    }
-
+        }
+            std::cout << "[Demuxer] video stream: " << video_stream_idx_
+            << ", audio stream: " << audio_stream_idx_ << std::endl;
+            return true;
+        }      
+        
     //之前这里有个单线程用的readpacket一一读包函数，放到run里面了
     void Demuxer::Start(){
         if(thread_.joinable()){//这个函数表示是否需要被join或者detach，需要的话返回true
@@ -53,7 +58,8 @@ namespace mp{
 
     void Demuxer::Stop(){
         thread_.request_stop();//终止线程
-        packet_queue_.Close();//这里加这个是为了防止睡着的push线程导致无法join（哪怕是jthread也不行）导致的死锁
+        video_packet_queue_.Close();//这里加这个是为了防止睡着的push线程导致无法join（哪怕是jthread也不行）导致的死锁
+        audio_packet_queue_.Close();//同上
         if(thread_.joinable()) thread_.join();//其实没有必要，因为队列已经设计的很严谨了
         //不会有主线程一边释放这个线程还一直往里面push的情况
     }
@@ -71,20 +77,28 @@ namespace mp{
                 if (ret != AVERROR_EOF) {
                     CheckFFmpeg(ret, "av_read_frame");
                 }
-                packet_queue_.Close();
+                video_packet_queue_.Close();
+                audio_packet_queue_.Close();
                 break;
             }
-            if (pkt->stream_index != video_stream_idx_) {
-                av_packet_free(&pkt);
+            if (pkt->stream_index == video_stream_idx_) {
+                if(!video_packet_queue_.push(pkt)){
+                    av_packet_free(&pkt);
+                }
                 continue;
-            }
-            if (!packet_queue_.push(pkt)) {
+            } else if (pkt->stream_index == audio_stream_idx_) {
+                if(!audio_packet_queue_.push(pkt)){
+                    av_packet_free(&pkt);
+                    break;
+                }
+                continue;
+            } else {
                 av_packet_free(&pkt);
-                break;
             }
         }
         std::cout << "[Demuxer] thread exiting" << std::endl;
-    
+    }
+
     AVCodecParameters* Demuxer::video_cpar() const {
         if(!fmt_ctx_ || video_stream_idx_ < 0) return nullptr;
         return fmt_ctx_->streams[video_stream_idx_]->codecpar;
@@ -103,5 +117,19 @@ namespace mp{
             nullptr);
     }
     //基于 container 和 codec 信息猜测帧率；第三个参数 frame 可以为 NULL；如果不知道帧率，会返回 0/1
+    AVCodecParameters* Demuxer::audio_codecpar() const {
+        if(!fmt_ctx_ || audio_stream_idx_ < 0) return nullptr;
+        return fmt_ctx_->streams[audio_stream_idx_]->codecpar;
+    }
+    AVRational Demuxer::audio_time_base() const {
+        if (audio_stream_idx_ < 0) return AVRational{0, 1};
+        return fmt_ctx_->streams[audio_stream_idx_]->time_base;
+    }
+    double Demuxer::total_duration_seconds() const {//这个是媒体的总播放时长,把微妙转换成秒
+        if(!fmt_ctx_) return 0.0;
+        if(fmt_ctx_->duration == AV_NOPTS_VALUE) return 0.0;
+        //直播流和裸文件流没有pts
+        return static_cast<double>(fmt_ctx_->duration) / AV_TIME_BASE;//100万，强制转换防止整数除法
+    }
 }
 
