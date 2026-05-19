@@ -60,8 +60,7 @@ namespace mp{
         thread_.request_stop();//终止线程
         video_packet_queue_.Close();//这里加这个是为了防止睡着的push线程导致无法join（哪怕是jthread也不行）导致的死锁
         audio_packet_queue_.Close();//同上
-        if(thread_.joinable()) thread_.join();//其实没有必要，因为队列已经设计的很严谨了
-        //不会有主线程一边释放这个线程还一直往里面push的情况
+        if(thread_.joinable()) thread_.join();// 必须 join：保证 Run() 退出后才能析构 fmt_ctx_（否则 UAF）
     }
 
     void Demuxer::Run(std::stop_token stoken){
@@ -81,19 +80,18 @@ namespace mp{
                 audio_packet_queue_.Close();
                 break;
             }
-            if (pkt->stream_index == video_stream_idx_) {
-                if(!video_packet_queue_.push(pkt)){
-                    av_packet_free(&pkt);
-                }
+            // 按 stream_index 分发到对应队列；push 失败 = 队列被 Close = 下游退出 = 整个生产者结束
+            PacketQueue* target = nullptr;
+            if (pkt->stream_index == video_stream_idx_)      target = &video_packet_queue_;
+            else if (pkt->stream_index == audio_stream_idx_) target = &audio_packet_queue_;
+
+            if (!target) {
+                av_packet_free(&pkt); // 字幕/附件等无关流，直接丢弃
                 continue;
-            } else if (pkt->stream_index == audio_stream_idx_) {
-                if(!audio_packet_queue_.push(pkt)){
-                    av_packet_free(&pkt);
-                    break;
-                }
-                continue;
-            } else {
+            }
+            if (!target->push(pkt)) {
                 av_packet_free(&pkt);
+                break;
             }
         }
         std::cout << "[Demuxer] thread exiting" << std::endl;
