@@ -16,7 +16,7 @@ namespace mp{
             VideoDecoder(const VideoDecoder& other) = delete;
             VideoDecoder& operator = (const VideoDecoder& other) = delete;
 
-            bool open(AVCodecParameters* codec);
+            bool Open(AVCodecParameters* codec);
             /*
             //用codecpar初始化解码器
             bool SendPacket(AVPacket* pkt);

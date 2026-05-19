@@ -16,13 +16,14 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     Demuxer demuxer;
     if (!demuxer.Open(argv[1])) return 1;//【0】是miniplayer，【1】是assert里面那个MP4的路径
     VideoDecoder decoder;
-    if (!decoder.open(demuxer.video_cpar())) return 1;
+    if (!decoder.Open(demuxer.video_codecpar())) return 1;
     Renderer renderer;
     if(!renderer.Open(decoder.width(),decoder.height(),decoder.pixelformat())) return 1;
 
     //2. 计算粗糙的帧间隔（暂时不做精确同步）
     AVRational rf = demuxer.video_frame_rate();//视频帧率
-    double fps = (rf.num>0 && rf.den>0) ? av_q2d(rf) : 30.0 ;//必须是大于0，虽然不太可能但是理论上如果分子是个负数那这里还是能过，非负为正
+    // 必须 num/den 都 > 0；否则 av_q2d 会得到 0 或负 fps，无法用作帧间隔
+    double fps = (rf.num>0 && rf.den>0) ? av_q2d(rf) : 30.0;
     auto frame_delay = std::chrono::microseconds(static_cast<long>(1000000.0/fps));
     //这里不用SDL_Delay了，因为那个只支持毫秒级别，会带来误差
     std::cout << "FPS: " << fps << std::endl;
@@ -34,6 +35,11 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     bool running = true;//控制住循环是否关闭
     int rendered = 0;//统计已经渲染到屏幕上的帧
 
+    // 主循环每隔 kEventPollInterval 至少回到顶端一次以处理窗口事件；
+    // 10ms ≈ 100Hz 是 GUI 事件响应的舒适甜点（人对 ≤50ms 内的延迟基本无感知，
+    // 但 >16ms 就开始让人觉得"卡"），同时 CPU 唤醒开销可忽略
+    constexpr auto kEventPollInterval = std::chrono::milliseconds(10);
+
     while(running){
         if (!renderer.HandleEvents()) {//按下q或者esc的时候会返回false
             running = false;
@@ -43,9 +49,8 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
         auto now = std::chrono::steady_clock::now();
         if(now < next_present) {
             auto sleep_time = next_present - now;
-            auto max_sleep = std::chrono::milliseconds(10);
-            if (sleep_time > max_sleep) {
-                std::this_thread::sleep_for(max_sleep);
+            if (sleep_time > kEventPollInterval) {
+                std::this_thread::sleep_for(kEventPollInterval);
                 continue; // 必须 continue 重新检测时间并处理窗口事件！否则会提前渲染
             }
             std::this_thread::sleep_for(sleep_time);

@@ -10,7 +10,7 @@ namespace mp{
         Stop();//停止
         frame_queue_.Clear([](AVFrame* frame){av_frame_free(&frame);});
     };
-    bool VideoDecoder::open(AVCodecParameters* codecpar){
+    bool VideoDecoder::Open(AVCodecParameters* codecpar){
         if(!codecpar) return false;
         const AVCodec* codec=avcodec_find_decoder(codecpar->codec_id);
         if(!codec) {
