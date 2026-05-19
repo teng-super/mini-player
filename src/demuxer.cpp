@@ -67,41 +67,36 @@ namespace mp{
             }
             int ret = av_read_frame(fmt_ctx_.get(),pkt);
             if(ret<0){
-                // 读完文件或出错
                 av_packet_free(&pkt);
-                if (ret != AVERROR_EOF) {//在ret为AVERROR_EOF时，此处返回-1
-                    //不同于自己封装的receiveframe，这个是ffmpeg的原生返回值
+                if (ret != AVERROR_EOF) {
                     CheckFFmpeg(ret, "av_read_frame");
-                    }
-                    // 通知下游：没有更多 packet 了
-                    packet_queue_.Close();//必须要关闭！只有在队列Close的情况下才会返回nullopt
-                    break;
                 }
-                if (pkt->stream_index != video_stream_idx_) {
-                    // 不是我们要的流，丢弃
-                    av_packet_free(&pkt);
-                    continue;
-                }
-                if (!packet_queue_.push(pkt)) {
-                    //av_packet_unref(pkt);一个bug
-                    av_packet_free(&pkt);//这个才对
-                    break;
-                }
+                packet_queue_.Close();
+                break;
             }
-            //全部push之后就不需要Demuxer线程去释放了，防止幽灵指针
-            std::cout << "[Demuxer] thread exiting" << std::endl;
+            if (pkt->stream_index != video_stream_idx_) {
+                av_packet_free(&pkt);
+                continue;
+            }
+            if (!packet_queue_.push(pkt)) {
+                av_packet_free(&pkt);
+                break;
+            }
         }
+        std::cout << "[Demuxer] thread exiting" << std::endl;
     
     AVCodecParameters* Demuxer::video_cpar() const {
-        if(video_stream_idx_ < 0 ) return nullptr;
+        if(!fmt_ctx_ || video_stream_idx_ < 0) return nullptr;
         return fmt_ctx_->streams[video_stream_idx_]->codecpar;
     }
 
     AVRational Demuxer::video_time_base() const {
+        if(!fmt_ctx_ || video_stream_idx_ < 0) return AVRational{0, 1};
         return fmt_ctx_->streams[video_stream_idx_]->time_base;
     }
 
     AVRational Demuxer::video_frame_rate() const {
+        if(!fmt_ctx_ || video_stream_idx_ < 0) return AVRational{0, 1};
         return av_guess_frame_rate(
             fmt_ctx_.get(),
             fmt_ctx_->streams[video_stream_idx_],

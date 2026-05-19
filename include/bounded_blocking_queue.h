@@ -47,7 +47,7 @@ namespace mp{
                 那说明它不是因为有新数据醒来的，
                 而是因为队列关闭醒来的。
                 所以返回 nullopt，通知消费者退出*/
-                T item = q.front();
+                T item = std::move(q.front());
                 q.pop();
                 pro_cv.notify_one();
                 return item;
