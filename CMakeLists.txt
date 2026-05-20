@@ -50,6 +50,7 @@ include/demuxer.h
 include/video_decoder.h
 include/audio_decoder.h
 include/renderer.h
+include/audio_resampler.h
 )
 # === 头⽂件搜索路径 ===
 # include ⽬录是放⾃⼰写的头⽂件的地⽅

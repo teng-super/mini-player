@@ -6,6 +6,7 @@ extern "C"{
     #include <libavcodec/avcodec.h>
     #include <libavutil/frame.h>
     #include <libswscale/swscale.h>
+    #include <libswresample/swresample.h>
 }
 
 namespace mp { // mini-player命名空间
@@ -54,13 +55,29 @@ namespace mp { // mini-player命名空间
     // 注意: sws_freeContext 接受单指针, 和上面几个不一样
     struct SwsContextDeleter {
         void operator()(SwsContext* ctx) const {
-            if (ctx) {
+            if (ctx) {//严格来讲不需要这个东西，
+                //C++ 标准明文规定:unique_ptr 持有 nullptr 时,析构函数不会调用 deleter。
+                //而且ffmpeg内部的api也加的有判空的逻辑
                 sws_freeContext(ctx);
             }
         }
     };
 
     using SwsContextPtr = std::unique_ptr<SwsContext, SwsContextDeleter>;
+
+    // === SwrContext包装 ====
+    //这个接受双指针
+    struct SwrContextDeleter {
+        void operator()(SwrContext* ctx) const{
+            if(ctx){
+                SwrContext* temp = ctx;
+                swr_free(&temp);//防止被顺着ctx打到智能指针里面去了，
+                //虽然目前来看不可能但是如果加上*&就会直接去改智能指针了
+            }
+        }
+    };
+
+    using SwrContextPtr = std::unique_ptr<SwrContext,SwrContextDeleter>;
 
     // ==== 关于packet和frame的内联函数 ====
     //inline = 这个函数可以安全地写在头文件里
