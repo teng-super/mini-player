@@ -39,7 +39,7 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     // 10ms ≈ 100Hz 是 GUI 事件响应的舒适甜点（人对 ≤50ms 内的延迟基本无感知，
     // 但 >16ms 就开始让人觉得"卡"），同时 CPU 唤醒开销可忽略
     constexpr auto kEventPollInterval = std::chrono::milliseconds(10);
-
+    //编译器计算
     while(running){
         if (!renderer.HandleEvents()) {//按下q或者esc的时候会返回false
             running = false;

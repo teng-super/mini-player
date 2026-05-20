@@ -32,6 +32,11 @@ namespace mp{
         )){
             return false;
         }
+        std::cout << "[AudioDecoder] opened: sample_rate=" << audio_ctx_->sample_rate
+          << " channels=" << audio_ctx_->ch_layout.nb_channels
+          << " sample_fmt="
+          << av_get_sample_fmt_name(audio_ctx_->sample_fmt)//返回人类看得懂的格式
+          << std::endl;
         return true;
     }
 
@@ -73,7 +78,7 @@ namespace mp{
     bool AudioDecoder::DrainFrames(std::stop_token stoken){
         while(true){
             if(stoken.stop_requested()) break;
-            AVFrame* frame = av_frame_alloc();
+            AVFrame* frame = av_frame_alloc();//这个不能写在外面，会有数据竞争
             if(!frame){
                 std::cerr << "[AudioDecoder] av_frame_alloc failed" << std::endl;
                 return false;
@@ -89,9 +94,10 @@ namespace mp{
             }
             if(ret < 0){
                 av_frame_free(&frame);
+                CheckFFmpeg(ret, "avcodec_receive_frame (audio)");
                 return false;
             }
-            if(!frame_queue_.push(frame)){
+            if(!frame_queue_.push(frame)){//返回false一般是队列被close了，这个时候就就需要释放掉frame然后退出Run函数了
                 av_frame_free(&frame);
                 return false;
             }
