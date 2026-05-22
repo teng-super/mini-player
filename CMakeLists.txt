@@ -73,6 +73,7 @@ message(STATUS "SDL2 version: ${SDL2_VERSION}")
 # === 测试文件添加 ===
 option(BUILD_TESTS "Build test programs" OFF)##添加BUILD_TESTS类型默认值为OFF，中间是注释
 if(BUILD_TESTS)
+    # ------------这个是有节队列的测试文件
     add_executable(test_bounded_blocking_queue
         tests/test_bounded_blocking_queue.cpp
     )
@@ -81,6 +82,22 @@ if(BUILD_TESTS)
     )
     find_package(Threads REQUIRED)
     target_link_libraries(test_bounded_blocking_queue PRIVATE Threads::Threads)
+
+    # ------------------ 新增 test_audio_resampler ------------------
+    add_executable(test_audio_resampler
+        tests/test_audio_resampler.cpp
+        src/demuxer.cpp
+        src/audio_decoder.cpp
+        src/audio_resampler.cpp
+    )
+    target_include_directories(test_audio_resampler PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    # 因为用到了 FFmpeg 和线程
+    target_link_libraries(test_audio_resampler PRIVATE 
+        PkgConfig::FFMPEG
+        Threads::Threads
+    )
 endif()
 
 # === Sanitizers 动态检查工具 (建议在 Debug 时开启) ===
