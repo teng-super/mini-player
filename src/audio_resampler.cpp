@@ -80,10 +80,10 @@ namespace mp {
 
             return converted * 2 /* S16 */ * 2 /* stereo */;
     }
-    int AudioResampler::EstimateOutputSize(int in_nb_sample){
+    int AudioResampler::EstimateOutputSize(int in_nb_samples) const {
         int est_samples = static_cast<int>(av_rescale_rnd(in_nb_samples, 
             dst_sample_rate_, src_sample_rate_,
-            AV_ROUND_UP))+256;
-            return 2*2*3/2;
+            AV_ROUND_UP)) + 256;
+        return est_samples * 2 /* S16 */ * 2 /* stereo */ * 3 / 2;
     }
 }
