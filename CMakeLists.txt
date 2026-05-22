@@ -44,6 +44,7 @@ src/demuxer.cpp
 src/video_decoder.cpp
 src/audio_decoder.cpp
 src/renderer.cpp
+src/audio_resampler.cpp
 include/ffmpeg_error.h
 include/ffmpeg_raii.h
 include/demuxer.h
