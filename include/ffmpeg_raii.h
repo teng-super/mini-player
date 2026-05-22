@@ -69,11 +69,9 @@ namespace mp { // mini-player命名空间
     //这个接受双指针
     struct SwrContextDeleter {
         void operator()(SwrContext* ctx) const{
-            if(ctx){
-                SwrContext* temp = ctx;
-                swr_free(&temp);//防止被顺着ctx打到智能指针里面去了，
-                //虽然目前来看不可能但是如果加上*&就会直接去改智能指针了
-            }
+            // ctx 是按值传入的裸指针副本，swr_free(&ctx) 只置空这个局部副本，
+            // 不会动到 unique_ptr 内部存储，所以直接取址即可
+            swr_free(&ctx);
         }
     };
 
