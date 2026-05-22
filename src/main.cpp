@@ -60,9 +60,9 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
                           << " pts=" << frame->pts << std::endl;
             }
             av_frame_free(&frame);
-                std::cout << "[AudioConsumer] exiting after "
+        }
+        std::cout << "[AudioConsumer] exiting after "
                   << audio_frame_count << " frames" << std::endl;
-        }  
     });
 
     //steady_clock 的定义是：now() 返回值单调非递减，不受系统时间调整影响。

@@ -1,4 +1,3 @@
-#pragma once
 #include "audio_resampler.h"
 #include <iostream>
 #include "ffmpeg_error.h"
@@ -74,8 +73,8 @@ namespace mp {
                 in_frame->nb_samples
             );
 
-            if(convered < 0){
-                CheckFFmpeg(convered,"swr_convert");
+            if(converted < 0){
+                CheckFFmpeg(converted,"swr_convert");
             }
 
             return converted * 2 /* S16 */ * 2 /* stereo */;
