@@ -45,6 +45,7 @@ src/video_decoder.cpp
 src/audio_decoder.cpp
 src/renderer.cpp
 src/audio_resampler.cpp
+src/audio_fifo.cpp
 include/ffmpeg_error.h
 include/ffmpeg_raii.h
 include/demuxer.h
@@ -52,6 +53,7 @@ include/video_decoder.h
 include/audio_decoder.h
 include/renderer.h
 include/audio_resampler.h
+include/audio_fifo.h
 )
 # === 头⽂件搜索路径 ===
 # include ⽬录是放⾃⼰写的头⽂件的地⽅
@@ -74,7 +76,8 @@ message(STATUS "SDL2 version: ${SDL2_VERSION}")
 option(BUILD_TESTS "Build test programs" OFF)##添加BUILD_TESTS类型默认值为OFF，中间是注释
 if(BUILD_TESTS)
     # ------------这个是有节队列的测试文件
-    add_executable(test_bounded_blocking_queue
+    add_executable(
+        test_bounded_blocking_queue
         tests/test_bounded_blocking_queue.cpp
     )
     target_include_directories(test_bounded_blocking_queue PRIVATE
@@ -82,7 +85,15 @@ if(BUILD_TESTS)
     )
     find_package(Threads REQUIRED)
     target_link_libraries(test_bounded_blocking_queue PRIVATE Threads::Threads)
-
+    # ------------------测试fifo是否正常---------------
+    add_executable(test_audio_fifo
+        tests/test_audio_fifo.cpp
+        src/audio_fifo.cpp
+    )
+    target_include_directories(test_audio_fifo PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_libraries(test_audio_fifo PRIVATE PkgConfig::FFMPEG)
     # ------------------ 新增 test_audio_resampler ------------------
     add_executable(test_audio_resampler
         tests/test_audio_resampler.cpp
