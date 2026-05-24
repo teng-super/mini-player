@@ -46,6 +46,7 @@ src/audio_decoder.cpp
 src/renderer.cpp
 src/audio_resampler.cpp
 src/audio_fifo.cpp
+src/audio_player.cpp
 include/ffmpeg_error.h
 include/ffmpeg_raii.h
 include/demuxer.h
@@ -54,6 +55,7 @@ include/audio_decoder.h
 include/renderer.h
 include/audio_resampler.h
 include/audio_fifo.h
+include/audio_player.h
 )
 # === 头⽂件搜索路径 ===
 # include ⽬录是放⾃⼰写的头⽂件的地⽅

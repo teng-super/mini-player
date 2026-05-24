@@ -107,9 +107,9 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
         渲染如果花了 20ms：sleep 13ms，总耗时 33ms ✓
         渲染如果花了 40ms（超时）：不 sleep，直接进下一帧，目标时间已经跟不上但下一帧会试图追
         这就叫自补偿调度。你的渲染快慢的抖动会被自动吸收，长期平均严格 30fps。
-        讲义原话："这种'基于绝对目标时间的等待'是音视频时序的基础模式。
-        "——这是 ffplay、mpv、ijkplayer 共有的设计模式。
-        ffplay 源码会看到 video_refresh 函数里有几乎完全一样的结构。*/
+        这种'基于绝对目标时间的等待'是音视频时序的基础模式。
+        ——这是 ffplay、mpv、ijkplayer 共有的设计模式。
+        ffplay 源码的video_refresh 函数里有几乎完全一样的结构。*/
     }
     std::cout << "Rendered " << rendered << " frames" << std::endl;
     demuxer.Stop();  // 1. 先停上游，它会 Close packet_queue
