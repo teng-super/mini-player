@@ -13,7 +13,7 @@ class AudioResampler {
     AudioResampler() = default;
     ~AudioResampler() = default;
     AudioResampler(const AudioResampler&) = delete;
-    AudioResampler operator = (const AudioResampler&) = delete;
+    AudioResampler& operator = (const AudioResampler&) = delete;
 
     bool Open(int src_sample_rate, AVSampleFormat src_fmt,
         const AVChannelLayout* src_ch_layout,

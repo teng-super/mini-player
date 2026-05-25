@@ -6,6 +6,7 @@
 namespace mp{
     AudioPlayer::~AudioPlayer(){
         fill_thread_.request_stop();
+        decoder_->frame_queue().Close();//防止卡在pop的死锁！
         if (device_id_ != 0) {
             SDL_CloseAudioDevice(device_id_);//关闭声卡设备
             device_id_ = 0;
