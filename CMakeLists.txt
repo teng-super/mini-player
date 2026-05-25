@@ -56,6 +56,7 @@ include/renderer.h
 include/audio_resampler.h
 include/audio_fifo.h
 include/audio_player.h
+include/audio_clock.h
 )
 # === 头⽂件搜索路径 ===
 # include ⽬录是放⾃⼰写的头⽂件的地⽅

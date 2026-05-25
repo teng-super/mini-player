@@ -7,6 +7,9 @@
 #include "renderer.h"
 #include "video_decoder.h"
 #include "audio_decoder.h"
+#include "audio_resampler.h"
+#include "audio_player.h"
+#include "audio_clock.h"
 
 using namespace mp;
 int main(int argc,char* argv[]){//命令行参数和参数具体内容
@@ -18,13 +21,16 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     if (!demuxer.Open(argv[1])) return 1;//【0】是miniplayer，【1】是assert里面那个MP4的路径
     VideoDecoder video_decoder;
     AudioDecoder audio_decoder;
+    AudioPlayer audio_player;
     if (demuxer.has_video()) {
         if (!video_decoder.Open(demuxer.video_codecpar())) return 1;
     }
     if (demuxer.has_audio()) {
         if (!audio_decoder.Open(demuxer.audio_codecpar())) return 1;
+        if (!audio_player.Open(&audio_decoder)) return 1;
     }
-
+    AudioClock audio_clock;//音频时钟
+    audio_player.SetClock(&audio_clock,demuxer.audio_time_base());
     
     Renderer renderer;
     if(!renderer.Open(video_decoder.width(),video_decoder.height(),video_decoder.pixelformat())) return 1;
@@ -41,30 +47,8 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     demuxer.Start();//start->run读取packet包并放入packet队列
     video_decoder.Start(&demuxer.video_packet_queue());//demuxer类里的接口，提供packet队列
     audio_decoder.Start(&demuxer.audio_packet_queue());
-
-    //测试音频解码器
-    std::jthread audio_consumer;
-    int audio_frame_count = 0;
-
-    audio_consumer=std::jthread([&](){
-        auto& p = audio_decoder.frame_queue();
-        while(true){
-            auto opt_pkt = p.pop();
-            if(!opt_pkt) break;
-            AVFrame* frame = *opt_pkt;
-
-            audio_frame_count++;
-            if (audio_frame_count % 30 == 0) {
-                std::cout << "[AudioConsumer] got " << audio_frame_count
-                          << " frames, latest nb_samples=" << frame->nb_samples
-                          << " pts=" << frame->pts << std::endl;
-            }
-            av_frame_free(&frame);
-        }
-        std::cout << "[AudioConsumer] exiting after "
-                  << audio_frame_count << " frames" << std::endl;
-    });
-
+    audio_player.Start();
+    
     //steady_clock 的定义是：now() 返回值单调非递减，不受系统时间调整影响。
     auto next_present = std::chrono::steady_clock::now();//第一帧应该呈现的时间点
     bool running = true;//控制住循环是否关闭
@@ -118,39 +102,6 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     // 之后 demuxer 和 decoder 离开作用域时，析构里的 Stop() 又调一遍，无害
     //如果顺序反了，就没法往下走了，packetqueue里的进程永远无法被唤醒
 
-    /*旧版本：
-    Renderer renderer;
-    if (!renderer.Open(decoder.width(), decoder.height(), decoder.pixelformat())) return 1;
-
-    AVRational fr = demuxer.video_frame_rate();//获取视频帧率
-    double fps = (fr.num && fr.den)? av_q2d(fr) : 30.0;//判断分子和分母不为0，den是分母
-    Uint32 frame_delay = static_cast<Uint32> (1000/fps);//一帧停留多少毫秒
-    auto packet = MakePacket();
-    auto frame = MakeFrame();
-    bool eof_reached = false;//读到末尾了
-    bool running = true;
-    while(running){
-        if(!renderer.HandleEvents()) break;
-        if(!eof_reached){
-            if(demuxer.ReadPacket(packet.get())){
-                decoder.SendPacket(packet.get());
-                av_packet_unref(packet.get());
-            }
-            else{
-                decoder.SendPacket(nullptr); // flush
-                eof_reached = true;//已到达最深处，没文件了
-            }
-        }
-        int ret = decoder.ReceiveFrame(frame.get());
-        if(ret == 1){
-            //根据我在vd里面的定义，返回1时真正的frame为0，意思是刚好吃下
-            renderer.RenderFrame(frame.get());
-            SDL_Delay(frame_delay);//随后音视频同步
-        }
-        else if (ret == -1) {
-            running = false;//AVERROR_EOF
-        }
-        //为0时说明返回的是EAGAIN，继续循环
-    }*///旧版流程
+    
     return 0;
 }

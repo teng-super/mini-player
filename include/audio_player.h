@@ -9,6 +9,7 @@
 #include "audio_decoder.h"
 #include "audio_fifo.h"
 #include "audio_resampler.h"
+#include "audio_clock.h"//音频时钟接入
 
 namespace mp{
     class AudioPlayer{
@@ -27,6 +28,9 @@ namespace mp{
             //暂停时调(让 SDL 停止调回调,后台线程也暂停 fill)
             void SetPaused(bool paused);
 
+            //传入时钟和时间戳
+            void SetClock(AudioClock* clock, AVRational time_base);
+
         private:
             void FillThread(std::stop_token stoken);
             static void SdlAudioCallback(void* userdata, uint8_t* stream, int len);
@@ -44,5 +48,10 @@ namespace mp{
             //后续所有操作——暂停、继续、关闭,都靠这个 ID辨识
             SDL_AudioSpec spec_{};//音频参数
             std::jthread fill_thread_;//取帧-从采样-写入fifo
+
+            //----------时钟---------
+            AudioClock* clock_ = nullptr; //不持有该时钟，外部创建
+            double last_frame_pts_seconds_ = 0.0;//记录上一帧的时间戳
+            AVRational time_base_{1, 1};
     };
 }

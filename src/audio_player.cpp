@@ -120,6 +120,12 @@ namespace mp{
                     break;
                 }
                 AVFrame* frame = *opt_frame;
+                //算出这一帧的时间戳
+                if(clock_&&frame->pts != AV_NOPTS_VALUE){
+                    double this_second = frame->pts * av_q2d(time_base_);
+                    last_frame_pts_seconds_ = this_second;//更新audioplayer的时间戳
+                    clock_->Update(this_second);//更新audioclock里的时间戳
+                }
                 //开始重采样
                 // 根据这帧的采样点数，估算输出需要多少字节
                 int need_bytes = resampler_.EstimateOutputSize(frame->nb_samples);
@@ -139,5 +145,9 @@ namespace mp{
                 }
             }
             std::cout << "[AudioPlayer::FillThread] exiting" << std::endl;
+        }
+        void AudioPlayer::SetClock(AudioClock* clock, AVRational time_base) {
+            clock_ = clock;
+            time_base_ = time_base;
         }
 }
