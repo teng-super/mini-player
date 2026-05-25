@@ -27,7 +27,7 @@ namespace mp{
 
         int sample_rate() const {return audio_ctx_ ? audio_ctx_->sample_rate : 0;};//没有重采样时的采样率
         int channels() const {return audio_ctx_ ? audio_ctx_-> ch_layout.nb_channels : 0;};//原始声道数
-        const AVChannelLayoutgi* ch_layout() const { return audio_ctx_ ? &audio_ctx_->ch_layout : nullptr;}//第一个const: 不能修改底层数据; 第二个const: 此函数不修改类成员
+        const AVChannelLayout* ch_layout() const { return audio_ctx_ ? &audio_ctx_->ch_layout : nullptr;}//第一个const: 不能修改底层数据; 第二个const: 此函数不修改类成员
         FrameQueue& frame_queue() { return frame_queue_; }
         AVSampleFormat sample_format() const {
             return audio_ctx_ ? audio_ctx_->sample_fmt : AV_SAMPLE_FMT_NONE;
