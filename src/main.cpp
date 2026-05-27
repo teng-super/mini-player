@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
+#include <fstream>
 #include <chrono>
 #include <thread>
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include "audio_resampler.h"
 #include "audio_player.h"
 #include "audio_clock.h"
+#include "sync_controller.h"
 
 using namespace mp;
 int main(int argc,char* argv[]){//命令行参数和参数具体内容
@@ -31,18 +33,19 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     }
     AudioClock audio_clock;//音频时钟
     audio_player.SetClock(&audio_clock,demuxer.audio_time_base());
+
+    SyncController sync_controller;//初始化同步控制器
+    sync_controller.SetAudioClock(&audio_clock);
+    AVRational video_tb = demuxer.video_time_base(); // 获得视频的时间基用来把 pts 换算成秒
+
+    std::ofstream sync_log("sync_log.csv");
+    sync_log << "frame_idx,video_pts,audio_clock,diff_ms,action\n";
+    //第几帧，视频帧时间戳，音频时钟，相差，采取什么欣慰
     
     Renderer renderer;
     if(!renderer.Open(video_decoder.width(),video_decoder.height(),video_decoder.pixelformat())) return 1;
 
-    //2. 计算粗糙的帧间隔（暂时不做精确同步）
-    AVRational rf = demuxer.video_frame_rate();//视频帧率
-    // 必须 num/den 都 > 0；否则 av_q2d 会得到 0 或负 fps，无法用作帧间隔
-    double fps = (rf.num>0 && rf.den>0) ? av_q2d(rf) : 30.0;
-    auto frame_delay = std::chrono::microseconds(static_cast<long>(1000000.0/fps));
-    //这里不用SDL_Delay了，因为那个只支持毫秒级别，会带来误差
-    std::cout << "FPS: " << fps << std::endl;
-
+    
     //启动两个后台线程
     demuxer.Start();//start->run读取packet包并放入packet队列
     video_decoder.Start(&demuxer.video_packet_queue());//demuxer类里的接口，提供packet队列
@@ -50,29 +53,20 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     audio_player.Start();
     
     //steady_clock 的定义是：now() 返回值单调非递减，不受系统时间调整影响。
-    auto next_present = std::chrono::steady_clock::now();//第一帧应该呈现的时间点
     bool running = true;//控制住循环是否关闭
     int rendered = 0;//统计已经渲染到屏幕上的帧
+    int drop = 0;//统计丢弃的帧数
+    int frame_idx = 0;//记录当前是第几帧
 
-    // 主循环每隔 kEventPollInterval 至少回到顶端一次以处理窗口事件；
-    // 10ms ≈ 100Hz 是 GUI 事件响应的舒适甜点（人对 ≤50ms 内的延迟基本无感知，
-    // 但 >16ms 就开始让人觉得"卡"），同时 CPU 唤醒开销可忽略
-    constexpr auto kEventPollInterval = std::chrono::milliseconds(10);
+    // 防止音频以及编译了视频还没有开始编译
+    while (audio_clock.Getseconds() == 0.0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
     //编译器计算
     while(running){
         if (!renderer.HandleEvents()) {//按下q或者esc的时候会返回false
             running = false;
             break;
-        }
-        //判断下一帧出现时间
-        auto now = std::chrono::steady_clock::now();
-        if(now < next_present) {
-            auto sleep_time = next_present - now;
-            if (sleep_time > kEventPollInterval) {
-                std::this_thread::sleep_for(kEventPollInterval);
-                continue; // 必须 continue 重新检测时间并处理窗口事件！否则会提前渲染
-            }
-            std::this_thread::sleep_for(sleep_time);
         }
 
         auto opt_frame = video_decoder.frame_queue().pop();
@@ -80,22 +74,50 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
             std::cout << "End of stream" << std::endl;
             break;
         }
+
         AVFrame* frame = *opt_frame;
-        renderer.RenderFrame(frame);
+
+        int64_t raw_pts = (frame->pts != AV_NOPTS_VALUE)? frame->pts : frame->best_effort_timestamp;
+        double video_pts_sec =(raw_pts != AV_NOPTS_VALUE)? raw_pts * av_q2d(video_tb):0.0;
+
+        double audio_time = audio_clock.Getseconds();
+        double diff_ms = (video_pts_sec - audio_time) * 1000.0;
+
+        SyncDecision daction = sync_controller.Decide(video_pts_sec);
+        if(daction.action == SyncAction::kWait){
+            auto wait = std::chrono::microseconds(
+                static_cast<long>(daction.wait_seconds*1000'000)//秒换成微妙
+            );
+            std::this_thread::sleep_for(wait);
+            renderer.RenderFrame(frame);
+            rendered++;
+        }
+        else if(daction.action == SyncAction::kDrop){
+            drop++;
+        }
+        else if(daction.action == SyncAction::kDisplay){
+            renderer.RenderFrame(frame);
+            rendered++;
+        }
+        
+        const char* action_str = 
+            (daction.action == SyncAction::kWait)  ? "wait" :
+            (daction.action == SyncAction::kDrop)  ? "drop" : "display";
+
+        sync_log << frame_idx << "," 
+                << video_pts_sec << ","
+                << audio_time << ","
+                << diff_ms << ","
+                << action_str << "\n";
+
+        frame_idx++;
+
         av_frame_free(&frame);
-        rendered++;
-        next_present += frame_delay;//关键！自适应更新时钟周期
-        /*next_present 是一个绝对时间点序列，比如 [T₀, T₀+33ms, T₀+66ms, T₀+99ms, ...]。
-        每帧渲染完后，目标时间往前推 33ms，不管这一帧实际花了多久。
-        渲染如果只花 5ms：sleep 28ms，总耗时 33ms ✓
-        渲染如果花了 20ms：sleep 13ms，总耗时 33ms ✓
-        渲染如果花了 40ms（超时）：不 sleep，直接进下一帧，目标时间已经跟不上但下一帧会试图追
-        这就叫自补偿调度。你的渲染快慢的抖动会被自动吸收，长期平均严格 30fps。
-        这种'基于绝对目标时间的等待'是音视频时序的基础模式。
-        ——这是 ffplay、mpv、ijkplayer 共有的设计模式。
-        ffplay 源码的video_refresh 函数里有几乎完全一样的结构。*/
     }
-    std::cout << "Rendered " << rendered << " frames" << std::endl;
+
+    std::cout << "Rendered " << rendered << " frames, dropped " << drop << std::endl;
+    
+    sync_log.close();
     demuxer.Stop();  // 1. 先停上游，它会 Close packet_queue
     audio_decoder.Stop();
     video_decoder.Stop();  // 2. 再停下游，此时 Pop 会返回 nullopt，线程自然退出

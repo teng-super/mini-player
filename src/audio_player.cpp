@@ -124,7 +124,15 @@ namespace mp{
                 if(clock_&&frame->pts != AV_NOPTS_VALUE){
                     double this_second = frame->pts * av_q2d(time_base_);
                     last_frame_pts_seconds_ = this_second;//更新audioplayer的时间戳
-                    clock_->Update(this_second);//更新audioclock里的时间戳
+                    // 减去 FIFO 里积压的时长，得到声卡真正在播的位置
+                    int backlog;
+                    {
+                        std::lock_guard<std::mutex> lock(fifo_mu_);
+                        backlog = fifo_.AvailableSamples();
+                    }
+                    double fifo_lag = backlog / 44100.0;
+                    clock_->Update(this_second - fifo_lag);//一定要减去在fifo里积压的量，不然会有很大（0.5）秒的延迟
+                    //是由于背压导致的,导致你的时钟记录的当前时间和实际播放的时间不一样！！！
                 }
                 //开始重采样
                 // 根据这帧的采样点数，估算输出需要多少字节

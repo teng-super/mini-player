@@ -32,7 +32,7 @@ namespace mp{
                 if(diff > sync_threshold_seconds_){
                     return {SyncAction::kWait,std::min(diff,1.0)};
                 }
-                else if(diff > drop_threshold_seconds_){
+                else if(diff < -drop_threshold_seconds_){
                     return {SyncAction::kDrop,{0.0}};
                 }
                 else return {SyncAction::kDisplay,{0.0}};
