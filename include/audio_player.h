@@ -31,6 +31,11 @@ namespace mp{
             //传入时钟和时间戳
             void SetClock(AudioClock* clock, AVRational time_base);
 
+            void ClearFifo() {
+                std::lock_guard<std::mutex> lock(fifo_mu_);//被主函数的function封装，去fifo里面掉Clear
+                fifo_.Clear();
+            }
+
         private:
             void FillThread(std::stop_token stoken);
             static void SdlAudioCallback(void* userdata, uint8_t* stream, int len);

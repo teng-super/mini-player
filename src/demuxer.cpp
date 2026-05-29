@@ -1,6 +1,9 @@
 #include<iostream>
 #include"demuxer.h"
 #include"ffmpeg_error.h"
+#include"seek_controller.h"
+#include"video_decoder.h"
+#include"audio_decoder.h"
 
 namespace mp{
     Demuxer::Demuxer() = default;
@@ -64,8 +67,46 @@ namespace mp{
         if(thread_.joinable()) thread_.join();// 必须 join：保证 Run() 退出后才能析构 fmt_ctx_（否则 UAF）
     }
 
+    void Demuxer::DoSeek(double target_seconds){
+        std::cout << "[Demuxer] seek to " << target_seconds << "s" << std::endl;
+        int64_t target_pts = static_cast<int64_t>(target_seconds * AV_TIME_BASE);//AV_TIME_BASE是100万，把秒换成毫秒
+        int ret = avformat_seek_file(
+            fmt_ctx_.get(),
+            -1,//使用全局时间基本
+            INT64_MIN,target_pts,target_pts,//计划跳到中间，之前也行，但是不能超过中间！
+            AVSEEK_FLAG_BACKWARD
+        );
+        if (ret < 0) {
+            CheckFFmpeg(ret, "avformat_seek_file");
+            return;
+        }
+
+        // 2. 清空两个 packet_queue 残留
+        video_packet_queue_.Clear([](AVPacket* pkt) { av_packet_free(&pkt); });
+        audio_packet_queue_.Clear([](AVPacket* pkt) { av_packet_free(&pkt); });
+        //很早之前的设计，专门使用lambda来应对不同类型的不同方法
+
+        // 3. flush decoders (清解码器内部缓存)
+        if (video_decoder_) video_decoder_->Flush();
+        if (audio_decoder_) audio_decoder_->Flush();
+
+        //4. 清理两个framequeue
+        if (video_decoder_) video_decoder_->ClearFrameQueue();
+        if (audio_decoder_) audio_decoder_->ClearFrameQueue();
+
+        // 5. 清空 audio fifo
+        if (audio_fifo_clearer_) audio_fifo_clearer_();
+        //从上往下依次清理
+    }
+
     void Demuxer::Run(std::stop_token stoken){
         while(!stoken.stop_requested()){
+            if(seek_controller_){//指针不为空说明主函数调用了demuxer的注册
+                double target;
+                if(seek_controller_->ConsumeIfPending(target)){//对象本体用 .，指针用 ->
+                    DoSeek(target);
+                }
+            }
             AVPacket* pkt = av_packet_alloc();
             if (!pkt) {
                 std::cerr << "av_packet_alloc failed" << std::endl;

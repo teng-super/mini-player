@@ -5,10 +5,18 @@
 #include <thread>
 #include <memory>
 #include <stop_token>
+#include <functional>//std::function<void()>的头文件
+#include <utility>//移动语义的头文件
+
 #include "ffmpeg_raii.h"
 #include "bounded_blocking_queue.h"
+#include "seek_controller.h"
+
 namespace mp{
-     using PacketQueue = BoundedBlockingQueue<AVPacket*>;//packet队列
+    class VideoDecoder;//前向声明，用于解决demuxer和两个decoder类的循环include问题
+    class AudioDecoder;
+
+    using PacketQueue = BoundedBlockingQueue<AVPacket*>;//packet队列
 class Demuxer {
     public:
         Demuxer();
@@ -48,8 +56,23 @@ class Demuxer {
 
         //基于 container 和 codec 信息猜测帧率；第三个参数 frame 可以为 NULL；如果不知道帧率，会返回 0/1
         AVFormatContext* format_context() const {return fmt_ctx_.get();};//
+
+        //===============seek类==================
+        void RegisterVideoDecoder(VideoDecoder* d) { video_decoder_ = d; }
+        void RegisterAudioDecoder(AudioDecoder* d) { audio_decoder_ = d; }
+        void SetSeekController(SeekController* seek_controller){
+            seek_controller_ = seek_controller;
+        }
+        using FifoClearer = std::function<void()>;
+        void SetAudioFifoClearer(FifoClearer clearer){//主函数传audioplayer里面新定义的哪个fifoclear接口给funtion封装住
+            audio_fifo_clearer_ = std::move(clearer);
+        }
+
+
     private:
     void Run(std::stop_token stoken);//后台的跑函数
+    void DoSeek(double target_seconds);//具体seek到的时间点，target_seconds为音频时钟上的时间
+
     int video_stream_idx_ = -1;
     int audio_stream_idx_ = -1;
     AVFormatContextPtr fmt_ctx_;
@@ -59,6 +82,11 @@ class Demuxer {
     PacketQueue audio_packet_queue_{100}; // 音频 packet 数量比视频多,容量大一些
     std::jthread thread_;//读线程
     //不需要了std::atomic<bool> stop_requested_{false};//让线程开始和停止
+
+    VideoDecoder* video_decoder_ = nullptr;
+    AudioDecoder* audio_decoder_ = nullptr; 
+    SeekController* seek_controller_ = nullptr;
+    FifoClearer audio_fifo_clearer_;
 };
 
 }

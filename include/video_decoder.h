@@ -28,6 +28,14 @@ namespace mp{
             //上面那个是老版本，多线程引入
             void Start(PacketQueue* packet_queue);//接入被塞满packet的管子
             void Stop();
+            //用于seek时清除残余物
+            void Flush(){
+                if(video_ctx_) avcodec_flush_buffers(video_ctx_.get());
+            }
+            void ClearFrameQueue() {
+                frame_queue_.Clear([](AVFrame* frame) { av_frame_free(&frame); });
+            }
+            
             FrameQueue& frame_queue(){
                 return frame_queue_;
             }//给渲染器使用这个队列的接口

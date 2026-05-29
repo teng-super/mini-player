@@ -24,9 +24,16 @@ namespace mp{
         bool Open(AVCodecParameters* codecpar);//需要拿这个申请解码器信息去finddecoder
         void Start(PacketQueue* packet_queue);
         void Stop();
+        //下面这俩用于seek时清除残余物，注意顺序是从上到下
+        void Flush(){
+            if(audio_ctx_) avcodec_flush_buffers(audio_ctx_.get());
+        }
+        void ClearFrameQueue() {
+            frame_queue_.Clear([](AVFrame* frame) { av_frame_free(&frame); });
+        }
 
         int sample_rate() const {return audio_ctx_ ? audio_ctx_->sample_rate : 0;};//没有重采样时的采样率
-        int channels() const {return audio_ctx_ ? audio_ctx_-> ch_layout.nb_channels : 0;};//原始声道数
+        int channels() const {return audio_ctx_ ? audio_ctx_->ch_layout.nb_channels : 0;};//原始声道数
         const AVChannelLayout* ch_layout() const { return audio_ctx_ ? &audio_ctx_->ch_layout : nullptr;}//第一个const: 不能修改底层数据; 第二个const: 此函数不修改类成员
         FrameQueue& frame_queue() { return frame_queue_; }
         AVSampleFormat sample_format() const {

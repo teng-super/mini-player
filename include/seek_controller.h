@@ -1,11 +1,9 @@
 #pragma once
 #include <atomic>
-#include <mutex>
 
 namespace mp{
     class SeekController{
         private:
-            mutable std::mutex mu_;
             std::atomic<bool> pending = {false};
             std::atomic<double> target_seconds_ = {0.0};
 
