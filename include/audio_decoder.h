@@ -24,9 +24,10 @@ namespace mp{
         bool Open(AVCodecParameters* codecpar);//需要拿这个申请解码器信息去finddecoder
         void Start(PacketQueue* packet_queue);
         void Stop();
-        //下面这俩用于seek时清除残余物，注意顺序是从上到下
-        void Flush(){
-            if(audio_ctx_) avcodec_flush_buffers(audio_ctx_.get());
+        //下面这俩用于seek时清除残余物，注意顺序是从上到下,改了
+        void RequestFlush(){
+            //if(audio_ctx_) avcodec_flush_buffers(audio_ctx_.get());
+            flush_requested_.store(true);
         }
         void ClearFrameQueue() {
             frame_queue_.Clear([](AVFrame* frame) { av_frame_free(&frame); });
@@ -39,6 +40,8 @@ namespace mp{
         AVSampleFormat sample_format() const {
             return audio_ctx_ ? audio_ctx_->sample_fmt : AV_SAMPLE_FMT_NONE;
         }
+        
+        std::atomic<bool> flush_requested_{false};
 
         private:
         void Run(std::stop_token stoken);

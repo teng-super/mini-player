@@ -12,6 +12,7 @@
 #include "audio_player.h"
 #include "audio_clock.h"
 #include "sync_controller.h"
+#include "seek_controller.h"
 
 using namespace mp;
 int main(int argc,char* argv[]){//命令行参数和参数具体内容
@@ -45,7 +46,16 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     Renderer renderer;
     if(!renderer.Open(video_decoder.width(),video_decoder.height(),video_decoder.pixelformat())) return 1;
 
-    
+    //seek接入,demuxer注册四个函数
+    SeekController seek_controller;
+    demuxer.RegisterVideoDecoder(&video_decoder);
+    demuxer.RegisterAudioDecoder(&audio_decoder);
+    demuxer.SetSeekController(&seek_controller);
+    demuxer.SetAudioFifoClearer([&audio_player,&audio_clock](){
+        audio_player.ClearFifo();
+        audio_clock.Reset();
+    });
+
     //启动两个后台线程
     demuxer.Start();//start->run读取packet包并放入packet队列
     video_decoder.Start(&demuxer.video_packet_queue());//demuxer类里的接口，提供packet队列
@@ -62,11 +72,26 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     while (audio_clock.Getseconds() == 0.0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
+
+    //seek所需时钟
+    auto seek_test_start = std::chrono::steady_clock::now();//时钟开始的时间
+    bool did_seek_test = false;
+
     //编译器计算
     while(running){
         if (!renderer.HandleEvents()) {//按下q或者esc的时候会返回false
             running = false;
             break;
+        }
+        if (!did_seek_test){
+             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::steady_clock::now() - seek_test_start).count();
+            //duration_cast意思是时间类型转换，换成秒，后面单位截断
+            if (elapsed >= 3) {
+                std::cout << "Test seek to 7s" << std::endl;
+                seek_controller.Request(7.0);
+                did_seek_test = true;
+            }
         }
 
         auto opt_frame = video_decoder.frame_queue().pop();

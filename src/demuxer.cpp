@@ -87,12 +87,10 @@ namespace mp{
         //很早之前的设计，专门使用lambda来应对不同类型的不同方法
 
         // 3. flush decoders (清解码器内部缓存)
-        if (video_decoder_) video_decoder_->Flush();
-        if (audio_decoder_) audio_decoder_->Flush();
+        if (video_decoder_) video_decoder_->RequestFlush();
+        if (audio_decoder_) audio_decoder_->RequestFlush();
 
-        //4. 清理两个framequeue
-        if (video_decoder_) video_decoder_->ClearFrameQueue();
-        if (audio_decoder_) audio_decoder_->ClearFrameQueue();
+        //还需要清理frame，顺手放上面那个函数里了
 
         // 5. 清空 audio fifo
         if (audio_fifo_clearer_) audio_fifo_clearer_();

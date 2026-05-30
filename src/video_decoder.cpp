@@ -55,6 +55,12 @@ namespace mp{
 
     void VideoDecoder::Run(std::stop_token stoken){
         while(!stoken.stop_requested()){
+             // 此处不在任何 avcodec 调用里，FFmpeg 内部线程也已经闲置，安全
+            if (flush_requested_.exchange(false)) {
+                avcodec_flush_buffers(video_ctx_.get());
+                frame_queue_.Clear([](AVFrame* f) { av_frame_free(&f); });
+            }
+
             //注意！stoken用的判断是stop_requested，而thread用的是request_stop，两个是反着的！！！
             auto opt_pkt = packet_queue_->pop();//从上游取出一个packet
 

@@ -55,6 +55,10 @@ namespace mp{
 
     void AudioDecoder::Run(std::stop_token stoken){
         while(!stoken.stop_requested()){
+            if (flush_requested_.exchange(false)) {
+                avcodec_flush_buffers(audio_ctx_.get());
+                frame_queue_.Clear([](AVFrame* f) { av_frame_free(&f); });
+            }
             auto opt_pkt = packet_queue_->pop();
             if(!opt_pkt){
                 // 上游 close 了，送 NULL 进解码器进入 flush 模式

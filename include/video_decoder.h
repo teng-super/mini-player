@@ -28,9 +28,10 @@ namespace mp{
             //上面那个是老版本，多线程引入
             void Start(PacketQueue* packet_queue);//接入被塞满packet的管子
             void Stop();
-            //用于seek时清除残余物
-            void Flush(){
-                if(video_ctx_) avcodec_flush_buffers(video_ctx_.get());
+            //用于seek时清除残余物，修改，避免线程竞争
+            void RequestFlush(){
+                //if(video_ctx_) avcodec_flush_buffers(video_ctx_.get());
+                flush_requested_.store(true);
             }
             void ClearFrameQueue() {
                 frame_queue_.Clear([](AVFrame* frame) { av_frame_free(&frame); });
@@ -49,6 +50,10 @@ namespace mp{
                 return video_ctx_ ? video_ctx_->height : 0;
             }
             //求分辨率
+
+            //修复seek时候的数据竞争bug
+            std::atomic<bool> flush_requested_{false};
+
         private:
             void Run(std::stop_token stoken);
             bool DrainFrames(std::stop_token stoken);
