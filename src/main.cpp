@@ -56,6 +56,12 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
         audio_clock.Reset();
     });
 
+    //设置丢帧需要用到的“时间尺子”
+    video_decoder.SetTimeBase(av_q2d(demuxer.video_time_base()));
+    if (demuxer.has_audio()) {
+        audio_decoder.SetTimeBase(av_q2d(demuxer.audio_time_base()));
+    }
+
     //启动两个后台线程
     demuxer.Start();//start->run读取packet包并放入packet队列
     video_decoder.Start(&demuxer.video_packet_queue());//demuxer类里的接口，提供packet队列

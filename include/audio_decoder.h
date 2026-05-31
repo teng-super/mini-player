@@ -40,7 +40,10 @@ namespace mp{
         AVSampleFormat sample_format() const {
             return audio_ctx_ ? audio_ctx_->sample_fmt : AV_SAMPLE_FMT_NONE;
         }
-        
+        //暴露setter
+        void SetTimeBase(double time_base_sec) { time_base_sec_ = time_base_sec; }
+        void SetDropUntil(double target_seconds) { drop_until_.store(target_seconds); }
+
         std::atomic<bool> flush_requested_{false};
 
         private:
@@ -51,5 +54,9 @@ namespace mp{
         //裸指针，代表不管理其生命周期
         FrameQueue frame_queue_{30}; // 容量 30
         std::jthread thread_;
+        //精确seek
+        double time_base_sec_ = 0.0;                 // 乘数：用于把 frame->pts 转换成秒
+        std::atomic<double> drop_until_{-1.0};       // 丢弃小于该秒数的帧（-1.0代表不丢）
+
     };
 }

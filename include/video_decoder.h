@@ -54,6 +54,9 @@ namespace mp{
             //修复seek时候的数据竞争bug
             std::atomic<bool> flush_requested_{false};
 
+        void SetTimeBase(double time_base_sec) { time_base_sec_ = time_base_sec; }
+        void SetDropUntil(double target_seconds) { drop_until_.store(target_seconds); }
+
         private:
             void Run(std::stop_token stoken);
             bool DrainFrames(std::stop_token stoken);
@@ -63,6 +66,8 @@ namespace mp{
             PacketQueue* packet_queue_ = nullptr; //不拥有上游队列，纯靠外部传入
 
             std::jthread thread_;
-            //std::atomic<bool> stop_requested_{false};
+
+            double time_base_sec_ = 0.0;                 // 乘数：用于把 frame->pts 转换成秒
+            std::atomic<double> drop_until_{-1.0};       // 丢弃小于该秒数的帧（-1.0代表不丢）
     };
 }

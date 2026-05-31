@@ -69,7 +69,8 @@ namespace mp{
 
     void Demuxer::DoSeek(double target_seconds){
         std::cout << "[Demuxer] seek to " << target_seconds << "s" << std::endl;
-        int64_t target_pts = static_cast<int64_t>(target_seconds * AV_TIME_BASE);//AV_TIME_BASE是100万，把秒换成毫秒
+        int64_t target_pts = static_cast<int64_t>(target_seconds * AV_TIME_BASE);//AV_TIME_BASE是100万，把秒换成微秒
+        //微妙是ffmpeg的全局时间基
         int ret = avformat_seek_file(
             fmt_ctx_.get(),
             -1,//使用全局时间基本
@@ -87,8 +88,14 @@ namespace mp{
         //很早之前的设计，专门使用lambda来应对不同类型的不同方法
 
         // 3. flush decoders (清解码器内部缓存)
-        if (video_decoder_) video_decoder_->RequestFlush();
-        if (audio_decoder_) audio_decoder_->RequestFlush();
+        if (video_decoder_) {
+            video_decoder_->RequestFlush();
+            video_decoder_->SetDropUntil(target_seconds);
+        }
+        if (audio_decoder_) {
+            audio_decoder_->RequestFlush();
+            audio_decoder_->SetDropUntil(target_seconds);//顺手把目标要seek到的时间传过去
+        }
 
         //还需要清理frame，顺手放上面那个函数里了
 

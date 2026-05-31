@@ -109,6 +109,18 @@ namespace mp{
                 av_frame_free(&frame);
                 return false;
             }
+            double target_time = drop_until_.load();//目标时间
+            if(target_time >= 0.0){
+                int64_t raw_pts = (frame->pts != AV_NOPTS_VALUE) ? frame->pts : frame->best_effort_timestamp;//解码器特有时间戳
+                double pts_time = (raw_pts != AV_NOPTS_VALUE) ? (raw_pts * time_base_sec_) : 0.0;//乘以时间基算实际坐标
+                
+                if(pts_time < target_time){
+                    av_frame_free(&frame);
+                    continue;
+                }
+                else drop_until_.store(-1.0);//这一步是方式因为b帧导致乱序以至于下一秒来了一帧小于7的
+                //就会直接被扔掉
+            }
 
             if(!frame_queue_.push(frame)){
                 av_frame_free(&frame);
