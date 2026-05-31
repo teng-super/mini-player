@@ -22,3 +22,6 @@ assets/*.flv
 !assets/sample.mp4
 # 排除 clangd 等本地工具缓存
 .cache/
+# 日志文件
+*.csv
+*.log
