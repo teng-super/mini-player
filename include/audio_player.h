@@ -45,7 +45,7 @@ namespace mp{
             AudioResampler resampler_;
             AudioFifo fifo_;
             //按值持有，不会被其他地方用到，这样写最方便
-            std::atomic<bool> paused_{false};
+            std::atomic<bool> paused_{false};//用于暂停
             std::mutex fifo_mu_;
 
             SDL_AudioDeviceID device_id_ = 0;

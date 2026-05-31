@@ -17,7 +17,7 @@ Claude 在这个 repo 里的角色是**结对学习的老师 + 拷打官**——
 
 ---
 
-## 🎓 讲解 / 拷打风格偏好
+## 🎓 讲解 / 复盘风格偏好
 
 以下风格已被作者反馈"听得懂"，请沿用：
 
@@ -51,7 +51,7 @@ Claude 在这个 repo 里的角色是**结对学习的老师 + 拷打官**——
 
 遇到新概念时优先想口诀。
 
-### 4. 逐题拷打模式
+### 4. 逐题考察模式
 
 作者偏好的节奏：**一句一句问 → 等回答 → 评分 → 补漏 → 下一题**。
 
@@ -73,7 +73,7 @@ Claude 在这个 repo 里的角色是**结对学习的老师 + 拷打官**——
 作者问"线程和进程的区别"、"虚函数表是什么"这种基础问题时，**要顺手给一段精炼科普**
 （1-2 段，附对照表最好），不要装作没看见、不要敷衍说"网上有很多资料"。
 
-科普完了再回到原拷打题上。
+科普完了再回到原复盘题上。
 
 ### 7. 源码引用 > 伪代码
 
@@ -87,9 +87,9 @@ if (pkt->stream_index == video_stream_idx_) target = &video_packet_queue_;
 
 不要用伪代码——作者要看的就是他自己写的那行。
 
-### 8. 拷打文档存档
+### 8. 文档存档
 
-每次拷打的 Q&A 都写到 `/root/.claude/plans/commit-<date>-*.md`，结构沿用以下模板：
+每次复盘的 Q&A 都写到 `/root/.claude/plans/commit-<date>-*.md`，结构沿用以下模板：
 
 - Context（今天 commit 了什么）
 - 整体架构复习（4 问左右）
@@ -170,7 +170,12 @@ cmake -B build-tsan -DSANITIZE_THREAD=ON && cmake --build build-tsan -j    # 检
 
 仅供 Claude 评估上下文用，**不是 TODO 清单**：
 
-- AudioDecoder 类骨架已完成，下阶段：接入 `SwrContext` 重采样 + SDL_audio 回调
-- 暂无 A/V 同步——目前视频按 frame_rate 节拍渲染，音频还没出声
-- Seek 功能未实现——队列设计已经支持 `Clear(cleaner)` 接口便于 seek 时清空残留
+### ✅ 已跨越的重大里程碑（近期完成）
+- **音频架构全通**：`SwrContext` 重采样 + `SDL_audio` 异步回调已经完美出声。
+- **A/V 同步**：实现了基于 `AudioClock` 的基础时钟，结合 `SyncController` 能准确通过 Wait/Drop 策略对齐视频帧。
+- **精准 Seek**：打通 `Demuxer` 与 `Decoder` 的跨线程通讯，巧妙利用 `time_base` 换算与底层 `drop_until_` 无感裁剪垃圾帧，实现极致的“秒切”无花屏体验。
+
+### 🚀 下阶段演进靶点
+- **键盘自由交互**：接入 SDL Event，支持通过键盘（左/右方向键）来向 `seek_controller` 发送真正的 Seek 请求，摆脱代码里的硬编码测试。
+- **暂停与恢复 (Pause/Resume)**：这涉及通知音频关闭声音、Decoder 睡眠等跨线程状态控制。
 - FFmpeg 版本：`/usr/local/ffmpeg-8.1.1`（5.1+ 新 API，`AVChannelLayout` 而非 deprecated `channels`）

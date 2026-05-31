@@ -3,6 +3,14 @@
 #include<SDL2/SDL.h>
 
 namespace mp{
+    enum class PlayerCommand {
+        kNone,       // 无事发生
+        kQuit,       // 退出程序 (原先的 false)
+        kSeekForward,// 快进 (+5秒)
+        kSeekBack,   // 快退 (-5秒)
+        kPause       // 暂停 (为未来预留)
+    };
+
     class Renderer{
         public:
             Renderer() = default;
@@ -13,8 +21,8 @@ namespace mp{
             bool Open(int width,int height,AVPixelFormat src_pix_fmt);
             //把frame（YUV）转换成成RGB格式渲染
             bool RenderFrame(AVFrame* frame);
-            // 处理 SDL 事件,返回 false 表⽰⽤⼾要退出
-            bool HandleEvents();
+            // 处理 SDL 事件,返回 false 表⽰⽤⼾要退出，修改为playercommand实现自定义状态
+            PlayerCommand HandleEvents();
 
             private:
             SDL_Window* window_ = nullptr;//窗口

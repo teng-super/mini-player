@@ -79,25 +79,38 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 
-    //seek所需时钟
-    auto seek_test_start = std::chrono::steady_clock::now();//时钟开始的时间
-    bool did_seek_test = false;
+    //处理pause暂停
+    bool is_paused = false;
 
-    //编译器计算
+    //主循环播放
     while(running){
-        if (!renderer.HandleEvents()) {//按下q或者esc的时候会返回false
+        PlayerCommand cmd = renderer.HandleEvents();
+        if (cmd == PlayerCommand::kQuit) {
             running = false;
             break;
+        } 
+                
+        if(cmd == PlayerCommand::kSeekForward){
+            double now_time = audio_clock.Getseconds();
+            double seek_time = now_time + 3.0;
+            seek_controller.Request(seek_time);
         }
-        if (!did_seek_test){
-             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::steady_clock::now() - seek_test_start).count();
-            //duration_cast意思是时间类型转换，换成秒，后面单位截断
-            if (elapsed >= 3) {
-                std::cout << "Test seek to 7s" << std::endl;
-                seek_controller.Request(7.0);
-                did_seek_test = true;
-            }
+
+        else if(cmd == PlayerCommand::kSeekBack){
+            double now_time = audio_clock.Getseconds();
+            double seek_time = std::max(0.0, now_time - 3.0);
+            seek_controller.Request(seek_time);
+        }
+
+        else if (cmd == PlayerCommand::kPause) {
+            is_paused = !is_paused;
+            audio_player.SetPaused(is_paused);
+        }
+
+        //暂停逻辑
+        if (is_paused) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
         }
 
         auto opt_frame = video_decoder.frame_queue().pop();

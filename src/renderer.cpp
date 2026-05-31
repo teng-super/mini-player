@@ -93,17 +93,39 @@ namespace mp{
         SDL_RenderPresent(renderer_);
         return true;
     }
-    bool Renderer::HandleEvents(){
-        SDL_Event event;//SDL特有的联合体,像一个嵌套的盒子
-        while(SDL_PollEvent(&event)){
-            if(event.type == SDL_QUIT) return false;
-            if(event.type == SDL_KEYDOWN){//此事件为键盘落下
-                if (event.key.keysym.sym == SDLK_q ||
-                    event.key.keysym.sym == SDLK_ESCAPE) {//按了q或者ESC
-                    return false;
+    PlayerCommand Renderer::HandleEvents() {
+        SDL_Event event;
+        PlayerCommand cmd_to_return = PlayerCommand::kNone;
+
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                return PlayerCommand::kQuit; // 退出最高优先级，直接返回也可以
+            }
+
+            if (event.type == SDL_KEYDOWN) {
+                switch (event.key.keysym.sym) {
+                    case SDLK_ESCAPE:
+                    case SDLK_q:
+                        return PlayerCommand::kQuit; // 退出最高优先级
+
+                    case SDLK_RIGHT:
+                        cmd_to_return = PlayerCommand::kSeekForward;
+                        break;
+
+                    case SDLK_LEFT:
+                        cmd_to_return = PlayerCommand::kSeekBack;
+                        break;
+
+                    case SDLK_SPACE:
+                        cmd_to_return = PlayerCommand::kPause;
+                        break;
+
+                    default:
+                        break;//这些break是为了退出swich
                 }
-            } 
-        }//判断用户有没有想退出的想法，即在键盘上按q或者esc
-        return true;
+            }
+        }
+
+        return cmd_to_return;
     }
 }
