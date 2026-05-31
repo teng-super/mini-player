@@ -63,7 +63,8 @@ class Demuxer {
         void SetSeekController(SeekController* seek_controller){
             seek_controller_ = seek_controller;
         }
-        using FifoClearer = std::function<void()>;
+        using FifoClearer = std::function<void(double)>;//改成接受一个double类型的参数
+        //function<返回值类型(参数类型)>指的是一个类模板对象，它内部保存一个“可调用对象”。
         void SetAudioFifoClearer(FifoClearer clearer){//主函数传audioplayer里面新定义的哪个fifoclear接口给funtion封装住
             audio_fifo_clearer_ = std::move(clearer);
         }

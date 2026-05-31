@@ -100,7 +100,7 @@ namespace mp{
         //还需要清理frame，顺手放上面那个函数里了
 
         // 5. 清空 audio fifo
-        if (audio_fifo_clearer_) audio_fifo_clearer_();
+        if (audio_fifo_clearer_) audio_fifo_clearer_(target_seconds);
         //从上往下依次清理
     }
 

@@ -51,9 +51,9 @@ int main(int argc,char* argv[]){//命令行参数和参数具体内容
     demuxer.RegisterVideoDecoder(&video_decoder);
     demuxer.RegisterAudioDecoder(&audio_decoder);
     demuxer.SetSeekController(&seek_controller);
-    demuxer.SetAudioFifoClearer([&audio_player,&audio_clock](){
+    demuxer.SetAudioFifoClearer([&audio_player,&audio_clock](double target){
         audio_player.ClearFifo();
-        audio_clock.Reset();
+        audio_clock.Reset(target);
     });
 
     //设置丢帧需要用到的“时间尺子”

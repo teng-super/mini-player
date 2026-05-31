@@ -28,10 +28,10 @@ namespace mp{
             double elapsed_sec = std::chrono::duration<double>(elapsed).count();
             return last_frame_pts_seconds_ + elapsed_sec;
         }
-        void Reset(){
+        void Reset(double target = 0.0){//如果一开始没有赋值，就赋值成0；
             std::lock_guard<std::mutex> lock(mu_);
-            last_frame_pts_seconds_ = {0.0};
-            last_update_time_ = {};
+            last_frame_pts_seconds_ = target;
+            last_update_time_ = std::chrono::steady_clock::now();//现在的时间
         }
     };
     
