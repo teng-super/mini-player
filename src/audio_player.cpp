@@ -131,7 +131,12 @@ namespace mp{
                         backlog = fifo_.AvailableSamples();
                     }
                     double fifo_lag = backlog / 44100.0;
-                    clock_->Update(this_second - fifo_lag);//一定要减去在fifo里积压的量，不然会有很大（0.5）秒的延迟
+                    // 这帧的时长 = 采样点数 / 源采样率，加到 pts 上就是"已缓冲音频的最新结束点"，
+        
+                    // 作为时钟外推的天花板，防止 underrun/暂停时墙钟空转把时钟带飞
+                    double frame_dur = (frame->sample_rate > 0) ? frame->nb_samples / static_cast<double>(frame->sample_rate) : 0.0 ;
+                    //这一帧能呆的最长时间 
+                    clock_->Update(this_second - fifo_lag , this_second + frame_dur);//一定要减去在fifo里积压的量，不然会有很大（0.5）秒的延迟
                     //是由于背压导致的,导致你的时钟记录的当前时间和实际播放的时间不一样！！！
                 }
                 //开始重采样
